@@ -71,35 +71,34 @@ Drive_playlist/
 
 ## 4. Tech Stack
 
-### Frontend
-- React 19
-- Vite
-- Framer Motion
-- Lucide React
-- TailwindCSS + PostCSS
-- ESLint
-
-### Backend
-- Node.js
-- Express
-- googleapis
-- cors
-- dotenv
-
-### Infrastructure
-- Frontend deployment: Vercel
-- Backend deployment: Render
-- Source control: Git + GitHub
+| Layer | Technology | Purpose |
+|---|---|---|
+| Frontend | React 19 | UI component architecture |
+| Frontend | Vite | Fast development server and production bundling |
+| Frontend | Framer Motion | UI animations and transitions |
+| Frontend | Lucide React | Icon system |
+| Frontend | TailwindCSS + PostCSS | Styling utilities and CSS processing |
+| Frontend | ESLint | Linting and code quality |
+| Backend | Node.js | JavaScript runtime |
+| Backend | Express | REST API server |
+| Backend | googleapis | Google Drive API integration |
+| Backend | cors | Cross-origin request handling |
+| Backend | dotenv | Environment variable management |
+| Infrastructure | Vercel | Frontend deployment platform |
+| Infrastructure | Render | Backend deployment platform |
+| Infrastructure | Git + GitHub | Version control and collaboration |
 
 ## 5. Key Features
 
-- Google Drive folder ingestion for music files
-- Audio-only filtering from Drive results
-- Full pagination on backend (not limited to first page)
-- Modern music-themed UI
-- Player queue pagination (15 songs visible per page)
-- Session persistence on frontend using `localStorage`
-- Clear status and error feedback during fetch/playback flow
+| Feature | Description | Current Behavior |
+|---|---|---|
+| Google Drive ingestion | Accepts a Drive folder link and fetches track metadata | Uses backend endpoint `POST /api/playlist` |
+| Audio filtering | Includes only audio MIME type files | Filters with `mimeType contains 'audio/'` |
+| Full backend pagination | Fetches all files across Drive API pages | Loops with `nextPageToken` until complete |
+| Music-themed UI | Cinematic, modern interface focused on playback | Implemented in React components and global styles |
+| Queue pagination | Keeps large track lists easy to browse | Shows 15 songs per page in queue view |
+| Session persistence | Keeps users signed in across refreshes | Stores auth state in `localStorage` |
+| Status and errors | Provides feedback during fetch and playback flow | UI shows loading, success, and error states |
 
 ## 6. Components Breakdown (Frontend)
 
@@ -218,12 +217,18 @@ Frontend local URL:
 ## 9. Environment Setup Summary
 
 ### Backend env vars
-- `PORT`: API server port (default `5000`)
-- `GOOGLE_API_KEY`: Google API key with Drive API enabled
+
+| Variable | Required | Description | Example |
+|---|---|---|---|
+| `PORT` | No | API server port (default is `5000`) | `5000` |
+| `GOOGLE_API_KEY` | Yes | Google API key with Drive API enabled | `AIza...` |
 
 ### Frontend env vars
-- `VITE_GOOGLE_CLIENT_ID`: Google OAuth client ID for sign-in
-- `VITE_BACKEND_URL`: Base URL for backend API
+
+| Variable | Required | Description | Example |
+|---|---|---|---|
+| `VITE_GOOGLE_CLIENT_ID` | Yes | Google OAuth client ID used by sign-in UI | `123456.apps.googleusercontent.com` |
+| `VITE_BACKEND_URL` | Yes | Base URL for backend API | `http://localhost:5000` |
 
 ## 10. Build and Deployment
 
