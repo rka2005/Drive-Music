@@ -1,0 +1,51 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;700&display=swap');
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: 'Space Grotesk', sans-serif;
+  color: #f5f7ff;
+  background:
+    radial-gradient(circle at 18% 16%, rgba(212, 175, 55, 0.14), transparent 24%),
+    radial-gradient(circle at 82% 12%, rgba(103, 232, 249, 0.12), transparent 22%),
+    radial-gradient(circle at 52% 110%, rgba(255, 122, 182, 0.08), transparent 28%),
+    linear-gradient(180deg, #0b0b12 0%, #050509 100%);
+  background-attachment: fixed;
+  scrollbar-color: rgba(212, 175, 55, 0.35) transparent;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::selection {
+  background: rgba(212, 175, 55, 0.35);
+  color: #fff9e1;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(249, 229, 150, 0.5), rgba(103, 232, 249, 0.25));
+  border-radius: 999px;
+}
