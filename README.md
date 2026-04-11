@@ -1,5 +1,14 @@
 # Drive Playlist
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![React](https://img.shields.io/badge/React-18.3.1-blue.svg)](https://reactjs.org/)
+[![Vite](https://img.shields.io/badge/Vite-5.4.19-646CFF.svg)](https://vitejs.dev/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4.17-38B2AC.svg)](https://tailwindcss.com/)
+[![Node.js](https://img.shields.io/badge/Node.js-18.17.1-green.svg)](https://nodejs.org/)
+[![Express](https://img.shields.io/badge/Express-4.18.2-lightgrey.svg)](https://expressjs.com/)
+[![Google APIs](https://img.shields.io/badge/Google_APIs-39.2.0-yellowgreen.svg)]
+
+
 Drive Playlist is a full-stack music web application that lets users connect a Google Drive folder, fetch audio files, and play them in a modern music-player interface.
 
 This repository contains:
