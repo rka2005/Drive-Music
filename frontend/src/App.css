@@ -386,18 +386,89 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+  overflow: visible;
+  z-index: 30;
 }
 
 .header-user-block {
   display: inline-flex;
   align-items: center;
   gap: 12px;
+  position: relative;
+}
+
+.header-user-identity {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+}
+
+.header-user-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.12rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  color: #fff8df;
+  border: 1px solid rgba(212, 175, 55, 0.28);
+  background: radial-gradient(circle at 30% 25%, #60a5fa 0%, #2563eb 35%, #1e1b4b 70%, #020617 100%);
+  box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.12), 0 10px 24px rgba(0, 0, 0, 0.3);
+}
+
+.header-user-avatar:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.28), 0 0 0 5px rgba(212, 175, 55, 0.14), 0 10px 24px rgba(0, 0, 0, 0.3);
 }
 
 .header-user-meta {
   display: grid;
   gap: 4px;
-  text-align: right;
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  min-width: 260px;
+  padding: 13px 15px;
+  border-radius: 16px;
+  border: 1px solid rgba(212, 175, 55, 0.28);
+  background: linear-gradient(180deg, rgba(24, 25, 36, 0.98), rgba(11, 12, 19, 0.98));
+  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(212, 175, 55, 0.08);
+  backdrop-filter: blur(14px);
+  text-align: left;
+  z-index: 60;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-6px);
+  pointer-events: none;
+  transition: opacity 180ms ease, transform 180ms ease, visibility 180ms ease;
+}
+
+.header-user-meta::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  right: 18px;
+  width: 10px;
+  height: 10px;
+  transform: rotate(45deg);
+  border-left: 1px solid rgba(212, 175, 55, 0.22);
+  border-top: 1px solid rgba(212, 175, 55, 0.22);
+  background: rgba(24, 25, 36, 0.98);
+}
+
+.header-user-identity:hover .header-user-meta,
+.header-user-identity:focus-within .header-user-meta,
+.header-user-identity.is-open .header-user-meta {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+  pointer-events: auto;
 }
 
 .header-user-name,
@@ -927,6 +998,8 @@
   }
 
   .header-user-meta {
-    text-align: left;
+    right: 0;
+    left: auto;
+    min-width: min(260px, calc(100vw - 48px));
   }
 }
