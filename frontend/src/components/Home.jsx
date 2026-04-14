@@ -152,7 +152,7 @@ export default function Home({ onSignOut, userProfile }) {
                 <Sparkles size={16} />
                 Latest link
               </span>
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <span className="latest-link-value" title={connectedLabel}>
                 {connectedLabel}
               </span>
             </div>

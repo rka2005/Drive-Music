@@ -33,21 +33,19 @@ export default function Header({ onSignOut, userProfile }) {
       animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
       transition={{ duration: 0.85, ease: [0.16, 1, 0.3, 1] }}
     >
-      <div className="brand-row">
+      <div className="brand-row brand-row--header">
         <div className="brand-mark">
           <img src={driveMusicLogo} alt="Drive Music logo" className="brand-logo-image" />
         </div>
 
-        <div>
+        <div className="brand-copy">
           <p className="brand-subtitle">Aria studio</p>
-          <h1 className="brand-name">Listen in color</h1>
+          <h1 className="brand-name">Turn up your world</h1>
         </div>
-      </div>
 
-      <div className="header-user-block">
         <div
           ref={userIdentityRef}
-          className={`header-user-identity${isUserCardOpen ? ' is-open' : ''}`}
+          className={`header-user-identity header-user-identity--top${isUserCardOpen ? ' is-open' : ''}`}
         >
           <button
             type="button"
@@ -63,17 +61,18 @@ export default function Header({ onSignOut, userProfile }) {
             <p className="header-user-email">{displayEmail}</p>
           </div>
         </div>
-        {onSignOut ? (
-          <button
-            type="button"
-            onClick={onSignOut}
-            className="signout-button"
-          >
-            <LogOut size={16} />
-            Sign out
-          </button>
-        ) : null}
       </div>
+
+      {onSignOut ? (
+        <button
+          type="button"
+          onClick={onSignOut}
+          className="signout-button signout-button--header"
+        >
+          <LogOut size={16} />
+          Sign out
+        </button>
+      ) : null}
     </motion.header>
   );
 }

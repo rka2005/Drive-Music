@@ -42,6 +42,11 @@
   gap: 20px;
 }
 
+.music-grid > section,
+.music-grid > div {
+  min-width: 0;
+}
+
 .music-grid--home {
   grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
   align-items: start;
@@ -91,6 +96,7 @@
 
 .header-card {
   padding: 18px 22px;
+  margin-bottom: 18px;
 }
 
 .hero-ambient {
@@ -398,6 +404,31 @@
   z-index: 30;
 }
 
+.brand-row--header {
+  flex-wrap: nowrap;
+  width: 100%;
+  min-width: 0;
+}
+
+.brand-copy {
+  min-width: 0;
+}
+
+.brand-row--header .brand-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.header-user-identity--top {
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
+.signout-button--header {
+  margin-left: auto;
+}
+
 .header-user-block {
   display: inline-flex;
   align-items: center;
@@ -549,6 +580,15 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   color: rgba(237, 240, 247, 0.76);
   word-break: break-word;
+}
+
+.latest-link-value {
+  display: block;
+  margin-top: 10px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .latest-label {
@@ -846,6 +886,9 @@
 
 .repeat-button {
   position: relative;
+  --repeat-badge-size: 16px;
+  --repeat-badge-font-size: 10px;
+  --repeat-badge-inset: 2px;
 }
 
 .repeat-button.is-active {
@@ -857,19 +900,21 @@
 
 .repeat-one-badge {
   position: absolute;
-  right: 9px;
-  bottom: 9px;
-  min-width: 16px;
-  height: 16px;
+  right: var(--repeat-badge-inset);
+  bottom: var(--repeat-badge-inset);
+  width: var(--repeat-badge-size);
+  min-width: var(--repeat-badge-size);
+  height: var(--repeat-badge-size);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  font-size: 10px;
+  font-size: var(--repeat-badge-font-size);
   line-height: 1;
   color: #0a1020;
   background: linear-gradient(135deg, #eaf6ff 0%, #00c8ff 100%);
   box-shadow: 0 0 12px rgba(0, 200, 255, 0.22);
+  pointer-events: none;
 }
 
 .icon-button,
@@ -1386,6 +1431,19 @@
   color: #f4f6fc;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.05);
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.signout-button:hover {
+  border-color: rgba(139, 0, 0, 0.6);
+  background: linear-gradient(135deg, #b31c1c, #641111);
+  color: #fff;
+  box-shadow: 0 0 10px rgba(139, 0, 0, 0.5);
+}
+
+.signout-button svg {
+  flex-shrink: 0;
 }
 
 .empty-stage .icon-badge {
@@ -1844,6 +1902,13 @@
   .header-user-meta {
     min-width: min(240px, calc(100vw - 32px));
   }
+
+  .latest-link-value {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    line-height: 1.5;
+  }
 }
 
 @media (max-width: 420px) {
@@ -1910,6 +1975,8 @@
   .signout-button {
     justify-content: center;
     width: 100%;
+    padding: 12px 18px;
+    padding: 12px 16px;
   }
 }
 
@@ -2162,5 +2229,79 @@
   .app-footer__pill {
     width: 100%;
     justify-content: center;
+  }
+}
+
+/* Header positioning hardening: keep avatar beside Aria Studio on smaller screens */
+@media (max-width: 900px) {
+  .header-card {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .brand-row--header {
+    width: 100%;
+    gap: 10px;
+  }
+
+  .header-user-identity--top {
+    margin-left: auto;
+  }
+
+  .signout-button--header {
+    width: 100%;
+    justify-content: center;
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .brand-row--header .brand-mark {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+  }
+
+  .brand-row--header .brand-name {
+    font-size: 1.28rem;
+    max-width: 10ch;
+  }
+
+  .brand-row--header .brand-subtitle {
+    letter-spacing: 0.24em;
+    font-size: 9px;
+  }
+}
+
+@media (max-width: 420px) {
+  .brand-row--header {
+    gap: 8px;
+  }
+
+  .brand-row--header .brand-name {
+    max-width: 8ch;
+    font-size: 1.14rem;
+  }
+
+  .header-user-avatar {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+@media (max-width: 700px) {
+  .repeat-button {
+    --repeat-badge-size: 13px;
+    --repeat-badge-font-size: 8px;
+    --repeat-badge-inset: 1px;
+  }
+}
+
+@media (max-width: 420px) {
+  .repeat-button {
+    --repeat-badge-size: 12px;
+    --repeat-badge-font-size: 7px;
+    --repeat-badge-inset: 0px;
   }
 }
