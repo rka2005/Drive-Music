@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { LogOut, Music4 } from 'lucide-react';
+import { LogOut } from 'lucide-react';
+import driveMusicLogo from '../assets/drive-music.jpeg';
 
 export default function Header({ onSignOut, userProfile }) {
   const displayName = userProfile?.name || 'Signed in';
@@ -34,7 +35,7 @@ export default function Header({ onSignOut, userProfile }) {
     >
       <div className="brand-row">
         <div className="brand-mark">
-          <Music4 size={22} />
+          <img src={driveMusicLogo} alt="Drive Music logo" className="brand-logo-image" />
         </div>
 
         <div>

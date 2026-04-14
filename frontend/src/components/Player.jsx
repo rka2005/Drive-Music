@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Play, Pause, SkipForward, SkipBack, Waves, Disc3, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Play, Pause, SkipForward, SkipBack, Waves, Disc3, ChevronLeft, ChevronRight, Repeat } from 'lucide-react';
 
 const PAGE_SIZE = 15;
 
@@ -8,11 +8,14 @@ export default function Player({ playlist }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [queuePage, setQueuePage] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
+  const [repeatOne, setRepeatOne] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const audioRef = useRef(null);
 
   const currentTrack = playlist[currentIndex];
+  const trackArtist = currentTrack.artist || currentTrack.owner || currentTrack.album || 'Google Drive track';
+  const waveformBars = [12, 18, 24, 30, 46, 58, 42, 28, 20, 34, 52, 64, 48, 36, 26, 40, 56, 44, 28, 22, 30, 50, 38, 26];
 
   const formatTime = (value) => {
     if (!Number.isFinite(value) || value < 0) {
@@ -28,6 +31,7 @@ export default function Player({ playlist }) {
     setCurrentIndex(0);
     setQueuePage(0);
     setIsPlaying(true);
+    setRepeatOne(false);
     setCurrentTime(0);
     setDuration(0);
   }, [playlist]);
@@ -50,6 +54,8 @@ export default function Player({ playlist }) {
       return undefined;
     }
 
+    audio.loop = repeatOne;
+
     const handleLoadedMetadata = () => {
       setDuration(audio.duration || 0);
     };
@@ -59,6 +65,10 @@ export default function Player({ playlist }) {
     };
 
     const handleEnded = () => {
+      if (repeatOne) {
+        return;
+      }
+
       handleNext();
     };
 
@@ -66,12 +76,16 @@ export default function Player({ playlist }) {
     audio.addEventListener('timeupdate', handleTimeUpdate);
     audio.addEventListener('ended', handleEnded);
 
+    if (repeatOne) {
+      audio.loop = true;
+    }
+
     return () => {
       audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
       audio.removeEventListener('timeupdate', handleTimeUpdate);
       audio.removeEventListener('ended', handleEnded);
     };
-  }, [currentIndex, playlist]);
+  }, [currentIndex, playlist, repeatOne]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -99,6 +113,10 @@ export default function Player({ playlist }) {
     if (audioRef.current) {
       audioRef.current.currentTime = value;
     }
+  };
+
+  const toggleRepeatOne = () => {
+    setRepeatOne((prev) => !prev);
   };
 
   if (!currentTrack) {
@@ -139,27 +157,52 @@ export default function Player({ playlist }) {
       <div className="hero-ambient hero-ambient--cyan" />
 
       <div className="player-empty">
-        <div className="panel-head">
-          <div>
-            <p className="eyebrow">Playing now</p>
-            <h2 className="panel-title">{currentTrack.title}</h2>
+        <div className="player-hero">
+          <div className="track-art" aria-hidden="true">
+            <div className="track-art__glow" />
+            <Disc3 size={52} />
           </div>
 
-          <div className="track-count">
-            Track {currentIndex + 1} / {playlist.length}
+          <div className="track-meta">
+            <div className="player-headline">
+              <div>
+                <p className="eyebrow">Playing now</p>
+                <h2 className="panel-title panel-title--track">{currentTrack.title}</h2>
+              </div>
+
+              <div className="track-count">
+                Track {currentIndex + 1} / {playlist.length}
+              </div>
+            </div>
+
+            <p className="track-subtitle">{trackArtist}</p>
+
+            <div className="track-status-row">
+              <span className={`pill pill--cyan ${isPlaying ? 'is-live' : ''}`}>
+                {isPlaying ? 'Now streaming' : 'Paused'}
+              </span>
+              <span className="pill">{repeatOne ? 'Repeat one' : 'Repeat off'}</span>
+            </div>
           </div>
         </div>
 
-        <div className="visualizer">
-          {[16, 28, 22, 34, 18, 26, 14, 30].map((barHeight, index) => (
+        <div className="waveform-shell" aria-label="Track waveform">
+          <div className="waveform-label-row">
+            <span className="subtle-label">Waveform</span>
+            <span className="waveform-state">{isPlaying ? 'live' : 'paused'}</span>
+          </div>
+
+          <div className="visualizer waveform-visualizer">
+          {waveformBars.map((barHeight, index) => (
             <motion.div
               key={`${barHeight}-${index}`}
-              className="visualizer-bar"
+              className="visualizer-bar waveform-bar"
               style={{ height: `${barHeight}px` }}
-              animate={isPlaying ? { opacity: [0.7, 1, 0.8, 1] } : { opacity: 0.45 }}
-              transition={{ repeat: Infinity, duration: 1.1 + index * 0.1, ease: 'easeInOut' }}
+              animate={isPlaying ? { scaleY: [0.7, 1.05, 0.82, 1] } : { scaleY: 0.5 }}
+              transition={{ repeat: Infinity, duration: 1.25 + index * 0.05, ease: 'easeInOut' }}
             />
           ))}
+          </div>
         </div>
 
         <div className="now-card">
@@ -189,33 +232,47 @@ export default function Player({ playlist }) {
           </div>
         </div>
 
-        <div className="control-row">
-          <button 
-            className="icon-button" 
-            onClick={handlePrev}
-            type="button"
-          >
-            <SkipBack size={22} strokeWidth={1.6} />
-          </button>
+        <div className="transport-shell">
+          <div className="control-row">
+            <button 
+              className="icon-button" 
+              onClick={handlePrev}
+              type="button"
+            >
+              <SkipBack size={22} strokeWidth={1.6} />
+            </button>
 
-          <motion.button 
-            className="play-button"
-            onClick={togglePlay}
-            whileTap={{ scale: 0.92 }}
-            type="button"
-          >
-            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-              {isPlaying ? <Pause size={24} color="#09090d" fill="#09090d" /> : <Play size={24} color="#09090d" fill="#09090d" className="ml-1" />}
-            </div>
-          </motion.button>
+            <motion.button 
+              className="play-button"
+              onClick={togglePlay}
+              whileTap={{ scale: 0.92 }}
+              type="button"
+            >
+              <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                {isPlaying ? <Pause size={24} color="#09090d" fill="#09090d" /> : <Play size={24} color="#09090d" fill="#09090d" className="ml-1" />}
+              </div>
+            </motion.button>
 
-          <button 
-            className="icon-button" 
-            onClick={handleNext}
-            type="button"
-          >
-            <SkipForward size={22} strokeWidth={1.6} />
-          </button>
+            <button 
+              className="icon-button" 
+              onClick={handleNext}
+              type="button"
+            >
+              <SkipForward size={22} strokeWidth={1.6} />
+            </button>
+
+            <button
+              type="button"
+              className={`icon-button repeat-button${repeatOne ? ' is-active' : ''}`}
+              onClick={toggleRepeatOne}
+              aria-pressed={repeatOne}
+              aria-label={repeatOne ? 'Disable repeat one' : 'Enable repeat one'}
+              title={repeatOne ? 'Repeat one on' : 'Repeat one off'}
+            >
+              <Repeat size={20} strokeWidth={1.8} />
+              <span className="repeat-one-badge">1</span>
+            </button>
+          </div>
         </div>
 
         <div className="queue-card">
