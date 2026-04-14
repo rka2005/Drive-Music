@@ -30,6 +30,22 @@ const corsOptions = {
 app.use(cors(corsOptions)); // Allows your React app to talk to this server
 app.use(express.json()); // Parses JSON bodies
 
+// Basic routes for Render browser checks and health probes
+app.get('/', (_req, res) => {
+  res.status(200).json({
+    service: 'Drive Music Backend',
+    status: 'ok',
+    endpoints: {
+      health: '/health',
+      playlist: '/api/playlist'
+    }
+  });
+});
+
+app.get('/health', (_req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
+
 // Initialize Google Drive API client
 const drive = google.drive({
   version: 'v3',
