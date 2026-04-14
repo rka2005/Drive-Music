@@ -9,25 +9,59 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // CORS configuration for production
+const normalizeOrigin = (value) => {
+  if (!value || typeof value !== 'string') {
+    return '';
+  }
+
+  return value.trim().replace(/\/+$/, '');
+};
+
 const allowedOrigins = [
-  'http://localhost:3000', // Local development
-  'http://localhost:5173', // Vite dev server
-  process.env.FRONTEND_URL || 'http://localhost:3000' // Production Vercel URL
-];
+  'http://localhost:3000',
+  'http://localhost:5173',
+  process.env.FRONTEND_URL,
+  ...(process.env.FRONTEND_URLS || '').split(','),
+]
+  .map(normalizeOrigin)
+  .filter(Boolean);
+
+const isAllowedOrigin = (origin) => {
+  if (!origin) {
+    return true;
+  }
+
+  const normalizedOrigin = normalizeOrigin(origin);
+
+  if (allowedOrigins.includes(normalizedOrigin)) {
+    return true;
+  }
+
+  try {
+    const { hostname } = new URL(normalizedOrigin);
+    return hostname.endsWith('.vercel.app');
+  } catch {
+    return false;
+  }
+};
 
 const corsOptions = {
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (isAllowedOrigin(origin)) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      callback(null, false);
     }
   },
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  optionsSuccessStatus: 204,
 };
 
 // Middleware
 app.use(cors(corsOptions)); // Allows your React app to talk to this server
+app.options(/.*/, cors(corsOptions));
 app.use(express.json()); // Parses JSON bodies
 
 // Basic routes for Render browser checks and health probes
