@@ -18,7 +18,8 @@ export default function Home({ onSignOut, userProfile }) {
 
     try {
       // Calls your Express backend
-      const response = await fetch('http://localhost:5000/api/playlist', {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+      const response = await fetch(`${backendUrl}/api/playlist`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
