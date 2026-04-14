@@ -1,6 +1,7 @@
 import React from 'react';
 import Home from './components/Home';
 import SignInPage from './components/SignInPage';
+import Footer from './components/Footer';
 import './App.css';
 
 const AUTH_STORAGE_KEY = 'drive-playlist-auth';
@@ -51,6 +52,7 @@ export default function App() {
       ) : (
         <SignInPage onSignIn={handleSignIn} />
       )}
+      <Footer />
     </div>
   );
 }
