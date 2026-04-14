@@ -39,6 +39,7 @@ export default function App() {
   };
 
   const handleSignOut = () => {
+    window.google?.accounts?.id?.disableAutoSelect?.();
     const nextAuthState = { isSignedIn: false, userProfile: null };
 
     setAuthState(nextAuthState);

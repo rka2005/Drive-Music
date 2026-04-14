@@ -59,11 +59,17 @@ export default function SignInPage({ onSignIn }) {
         return;
       }
 
+      // Force generic button behavior instead of account-personalized FedCM UI.
+      window.google.accounts.id.disableAutoSelect();
+
       const viewportWidth = window.innerWidth || 360;
       const responsiveGoogleWidth = Math.min(360, Math.max(220, viewportWidth - 56));
 
       window.google.accounts.id.initialize({
         client_id: googleClientId,
+        auto_select: false,
+        use_fedcm_for_button: false,
+        use_fedcm_for_prompt: false,
         callback: (response) => {
           if (!response?.credential) {
             setGoogleError('Google login failed. Please try again.');
