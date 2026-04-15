@@ -1,5 +1,6 @@
 import React from 'react';
 import Home from './components/Home';
+import Loader from './components/Loader';
 import SignInPage from './components/SignInPage';
 import Footer from './components/Footer';
 import './App.css';
@@ -7,6 +8,7 @@ import './App.css';
 const AUTH_STORAGE_KEY = 'drive-playlist-auth';
 
 export default function App() {
+  const [isPageLoading, setIsPageLoading] = React.useState(() => document.readyState !== 'complete');
   const [authState, setAuthState] = React.useState(() => {
     try {
       const storedAuth = window.localStorage.getItem(AUTH_STORAGE_KEY);
@@ -25,6 +27,21 @@ export default function App() {
       return { isSignedIn: false, userProfile: null };
     }
   });
+
+  React.useEffect(() => {
+    const markLoaded = () => setIsPageLoading(false);
+
+    if (document.readyState === 'complete') {
+      markLoaded();
+      return undefined;
+    }
+
+    window.addEventListener('load', markLoaded, { once: true });
+
+    return () => {
+      window.removeEventListener('load', markLoaded);
+    };
+  }, []);
 
   const { isSignedIn, userProfile } = authState;
 
@@ -48,6 +65,14 @@ export default function App() {
 
   return (
     <div className="app-shell">
+      {isPageLoading ? (
+        <div className="app-loading-overlay" aria-hidden="true">
+          <Loader
+            message="Loading Drive Music"
+            submessage="Preparing the listening room and syncing the interface..."
+          />
+        </div>
+      ) : null}
       {isSignedIn ? (
         <Home onSignOut={handleSignOut} userProfile={userProfile} />
       ) : (

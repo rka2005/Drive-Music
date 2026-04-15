@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import Header from './Header';
 import DriveInput from './DriveInput';
+import Loader from './Loader';
 import Player from './Player';
-import { Music4, Disc3, Radio, Sparkles, Loader2, AlertCircle } from 'lucide-react';
+import { Music4, Disc3, Radio, Sparkles, AlertCircle } from 'lucide-react';
 
 export default function Home({ onSignOut, userProfile }) {
   const [playlist, setPlaylist] = useState([]);
@@ -116,7 +117,7 @@ export default function Home({ onSignOut, userProfile }) {
             ))}
           </div>
 
-          <DriveInput onConnect={handleFetchDriveFiles} />
+          <DriveInput onConnect={handleFetchDriveFiles} isLoading={isLoading} />
 
           <motion.section
             className="glass-panel status-card"
@@ -134,7 +135,7 @@ export default function Home({ onSignOut, userProfile }) {
                 </h3>
               </div>
               <div className="track-count">
-                {isLoading ? <Loader2 size={16} className="animate-spin" /> : 
+                {isLoading ? <span className="track-count__loading-text">Loading</span> : 
                  error ? <AlertCircle size={16} color="#ff6b6b" /> :
                  playlist.length > 0 ? `${playlist.length} tracks` : 'Preview mode'}
               </div>
@@ -162,8 +163,15 @@ export default function Home({ onSignOut, userProfile }) {
 
         <section>
           <AnimatePresence mode="wait">
-            {/* Only render the Player if we have a playlist and aren't actively loading */}
-            {playlist.length > 0 && !isLoading && (
+            {isLoading ? (
+              <Loader
+                key="drive-loader"
+                compact
+                message="Fetching tracks from Drive"
+                submessage="Decrypting the folder, resolving links, and preparing playback..."
+                className="player-loading-shell"
+              />
+            ) : (
               <Player key={playlist.length} playlist={playlist} />
             )}
           </AnimatePresence>

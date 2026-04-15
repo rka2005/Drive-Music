@@ -13,8 +13,8 @@ export default function Player({ playlist }) {
   const [duration, setDuration] = useState(0);
   const audioRef = useRef(null);
 
-  const currentTrack = playlist[currentIndex];
-  const trackArtist = currentTrack.artist || currentTrack.owner || currentTrack.album || 'Google Drive track';
+  const currentTrack = playlist?.[currentIndex];
+  const trackArtist = currentTrack?.artist || currentTrack?.owner || currentTrack?.album || 'Google Drive track';
   const waveformBars = [12, 18, 24, 30, 46, 58, 42, 28, 20, 34, 52, 64, 48, 36, 26, 40, 56, 44, 28, 22, 30, 50, 38, 26];
 
   const formatTime = (value) => {

@@ -9,6 +9,7 @@ import {
   Sparkles,
   Waves,
 } from 'lucide-react';
+import Loader from './Loader';
 import driveMusicLogo from '../assets/drive-music.jpeg';
 
 const highlights = [
@@ -282,7 +283,14 @@ export default function SignInPage({ onSignIn }) {
             <div className="google-auth-block google-auth-block--featured">
               <span className="field-caption">Quick Access</span>
               <div ref={googleButtonRef} className="google-button-mount" />
-              {!googleReady && !googleError ? <p className="muted-line">Loading Google sign-in...</p> : null}
+              {!googleReady && !googleError ? (
+                <Loader
+                  compact
+                  message="Loading Google sign-in"
+                  submessage="Initializing the secure Google button..."
+                  className="google-loader-shell"
+                />
+              ) : null}
               {googleError ? <p className="google-error">{googleError}</p> : <p className="muted-line">Use your Google account to authorize and start streaming in one tap.</p>}
             </div>
 

@@ -2,14 +2,14 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link2, Music2, Sparkles } from 'lucide-react';
 
-export default function DriveInput({ onConnect }) {
+export default function DriveInput({ onConnect, isLoading = false }) {
   const [driveLink, setDriveLink] = useState('');
   const [isFocused, setIsFocused] = useState(false);
 
   const handleConnect = (event) => {
     event.preventDefault();
 
-    if (driveLink.trim() !== '') {
+    if (!isLoading && driveLink.trim() !== '') {
       onConnect(driveLink.trim());
     }
   };
@@ -52,14 +52,16 @@ export default function DriveInput({ onConnect }) {
             onChange={(e) => setDriveLink(e.target.value)}
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
+            disabled={isLoading}
           />
         </label>
 
         <button 
           type="submit"
           className="primary-button"
+          disabled={isLoading}
         >
-          Load set
+          {isLoading ? 'Loading...' : 'Load set'}
         </button>
       </div>
     </motion.form>
