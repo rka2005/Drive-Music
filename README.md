@@ -366,7 +366,3 @@ Maintainer contact:
 - Add API health endpoint
 - Add playlist caching and retry strategy
 - Add Docker support for one-command deployment
-
-## 17. License
-
-ISC
