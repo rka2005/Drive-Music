@@ -8,25 +8,35 @@ import { Music4, Disc3, Radio, Sparkles, AlertCircle } from 'lucide-react';
 
 export default function Home({ onSignOut, userProfile }) {
   const [playlist, setPlaylist] = useState([]);
+  const [source, setSource] = useState('drive');
   const [connectedLabel, setConnectedLabel] = useState('Waiting for a Drive link');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const sourceLabel = source === 'youtube' ? 'YouTube' : 'Drive';
 
-  const handleFetchDriveFiles = async (link) => {
+  const handleFetchPlaylist = async ({ source: selectedSource, link }) => {
+    const nextSource = selectedSource || source;
+    const isYouTube = nextSource === 'youtube';
+
+    setSource(nextSource);
     setConnectedLabel(link);
     setIsLoading(true);
     setError(null);
 
     try {
-      // Calls your Express backend
       const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
-      const response = await fetch(`${backendUrl}/api/playlist`, {
+      const endpoint = isYouTube ? '/api/youtube/playlist' : '/api/playlist';
+      const payload = isYouTube
+        ? { youtubeUrl: link }
+        : {
+            driveUrl: link,
+            accessToken: userProfile.googleAccessToken,
+          };
+
+      const response = await fetch(`${backendUrl}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-            driveUrl: link,
-            accessToken: userProfile.googleAccessToken // 👈 ADD THIS
-        })
+        body: JSON.stringify(payload)
       });
 
       const data = await response.json();
@@ -35,7 +45,7 @@ export default function Home({ onSignOut, userProfile }) {
         throw new Error(data.error || 'Failed to fetch playlist');
       }
 
-      setPlaylist(data.playlist);
+      setPlaylist(data.playlist || []);
     } catch (err) {
       setError(err.message);
       setPlaylist([]);
@@ -66,7 +76,7 @@ export default function Home({ onSignOut, userProfile }) {
 
             <div className="pill-row">
               <span className="pill">Now playing space</span>
-              <span className="pill pill--cyan">Drive synced</span>
+              <span className="pill pill--cyan">{sourceLabel} mode</span>
             </div>
 
             <div className="hero-grid">
@@ -76,7 +86,7 @@ export default function Home({ onSignOut, userProfile }) {
                   Your library, dressed like a late-night studio.
                 </h1>
                 <p className="body-copy hero-copy">
-                  Connect a Drive link, unlock the playlist, and keep the whole surface moody, minimal, and built around the track.
+                  Connect a Drive folder or YouTube playlist, unlock your set, and keep the whole surface moody, minimal, and built around the track.
                 </p>
               </div>
 
@@ -99,7 +109,7 @@ export default function Home({ onSignOut, userProfile }) {
             {[
               { icon: Music4, title: 'Curated flow', copy: 'Soft gradient surfaces and clear hierarchy.' },
               { icon: Disc3, title: 'Analog glow', copy: 'Gold accents anchor the interface without overpowering it.' },
-              { icon: Radio, title: 'Live sync', copy: 'Drive-connected playlists feel immediate and playable.' },
+              { icon: Radio, title: 'Live sync', copy: 'Drive and YouTube playlists feel immediate and playable.' },
             ].map((item, index) => (
               <motion.article
                 key={item.title}
@@ -117,7 +127,17 @@ export default function Home({ onSignOut, userProfile }) {
             ))}
           </div>
 
-          <DriveInput onConnect={handleFetchDriveFiles} isLoading={isLoading} />
+          <DriveInput
+            onConnect={handleFetchPlaylist}
+            isLoading={isLoading}
+            source={source}
+            onSourceChange={(nextSource) => {
+              setSource(nextSource);
+              setConnectedLabel(nextSource === 'youtube' ? 'Waiting for a YouTube playlist link' : 'Waiting for a Drive link');
+              setPlaylist([]);
+              setError(null);
+            }}
+          />
 
           <motion.section
             className="glass-panel status-card"
@@ -129,24 +149,24 @@ export default function Home({ onSignOut, userProfile }) {
               <div>
                 <p className="eyebrow">Connection status</p>
                 <h3 className="section-title">
-                  {isLoading ? 'Syncing with Drive...' : 
+                  {isLoading ? `Syncing with ${sourceLabel}...` :
                    error ? 'Connection Failed' :
                    playlist.length > 0 ? 'Playlist unlocked' : 'Waiting for your set'}
                 </h3>
               </div>
               <div className="track-count">
-                {isLoading ? <span className="track-count__loading-text">Loading</span> : 
+                {isLoading ? <span className="track-count__loading-text">Loading</span> :
                  error ? <AlertCircle size={16} color="#ff6b6b" /> :
                  playlist.length > 0 ? `${playlist.length} tracks` : 'Preview mode'}
               </div>
             </div>
 
             <p className="status-copy" style={{ color: error ? '#ff6b6b' : 'inherit' }}>
-              {isLoading ? 'Decrypting folder contents and generating secure streaming links...' :
+              {isLoading ? `Fetching ${sourceLabel} playlist and preparing streaming links...` :
                error ? `Error: ${error}` :
                playlist.length > 0
                 ? 'The player is live. Use the controls below to move through the set and keep the atmosphere consistent.'
-                : 'Paste a Drive link to fetch your files and bring the player to life.'}
+                : `Paste a ${sourceLabel} playlist link to fetch your files and bring the player to life.`}
             </p>
 
             <div className="latest-link">
@@ -165,14 +185,14 @@ export default function Home({ onSignOut, userProfile }) {
           <AnimatePresence mode="wait">
             {isLoading ? (
               <Loader
-                key="drive-loader"
+                key="playlist-loader"
                 compact
-                message="Fetching tracks from Drive"
-                submessage="Decrypting the folder, resolving links, and preparing playback..."
+                message={`Fetching tracks from ${sourceLabel}`}
+                submessage="Resolving playlist entries and preparing audio playback..."
                 className="player-loading-shell"
               />
             ) : (
-              <Player key={playlist.length} playlist={playlist} />
+              <Player key={`${source}-${playlist.length}`} playlist={playlist} />
             )}
           </AnimatePresence>
         </section>

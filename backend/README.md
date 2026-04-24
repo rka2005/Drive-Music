@@ -124,6 +124,37 @@ Fetches all audio files from a Google Drive folder and returns a playlist with p
 - `404` – No audio files found in the folder
 - `500` – Server error (usually API quota or auth failure)
 
+### `POST /api/youtube/playlist`
+
+Fetches all playable videos from a YouTube playlist URL and returns audio-ready tracks.
+
+**Request:**
+```json
+{
+   "youtubeUrl": "https://www.youtube.com/playlist?list=PLxxxxxxxxxxxx"
+}
+```
+
+**Response (Success):**
+```json
+{
+   "playlist": [
+      {
+         "id": "video_id-0",
+         "source": "youtube",
+         "videoId": "video_id",
+         "title": "Track Title",
+         "artist": "Channel Name",
+         "url": "http://localhost:5000/api/youtube/audio/video_id"
+      }
+   ]
+}
+```
+
+### `GET /api/youtube/audio/:videoId`
+
+Streams YouTube audio transcoded to MP3 from the given video ID.
+
 ---
 
 ## 🔄 Workflow
@@ -178,6 +209,7 @@ Frontend (React)
 |---|---|---|---|
 | `PORT` | No | Server port | `5000` |
 | `GOOGLE_API_KEY` | **Yes** | Your Google Cloud API key | `AIzaSyD...` |
+| `YOUTUBE_API_KEY` | Recommended | YouTube Data API v3 key (falls back to `GOOGLE_API_KEY`) | `AIzaSyD...` |
 
 ### `.env` Template
 
@@ -188,6 +220,9 @@ PORT=5000
 # Google Cloud API Key (REQUIRED)
 # Get this from https://console.cloud.google.com/
 GOOGLE_API_KEY=your_key_here_33_character_string
+
+# YouTube Data API v3 Key (recommended)
+YOUTUBE_API_KEY=your_youtube_data_api_key_here
 ```
 
 ### `.env.example`
@@ -197,6 +232,7 @@ Keep a `.env.example` file in the repo (without secret values) so teammates can 
 ```env
 PORT=5000
 GOOGLE_API_KEY=YOUR_GOOGLE_API_KEY_HERE
+YOUTUBE_API_KEY=YOUR_YOUTUBE_API_KEY_HERE
 ```
 
 ---
