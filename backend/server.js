@@ -2,18 +2,11 @@ import express from 'express';
 import cors from 'cors';
 import { google } from 'googleapis';
 import dotenv from 'dotenv';
-import ytdl from 'ytdl-core';
-import ffmpeg from 'fluent-ffmpeg';
-import ffmpegPath from 'ffmpeg-static';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-
-if (ffmpegPath) {
-  ffmpeg.setFfmpegPath(ffmpegPath);
-}
 
 // CORS configuration for production
 const normalizeOrigin = (value) => {
@@ -80,7 +73,6 @@ app.get('/', (_req, res) => {
       health: '/health',
       drivePlaylist: '/api/playlist',
       youtubePlaylist: '/api/youtube/playlist',
-      youtubeAudio: '/api/youtube/audio/:videoId',
     }
   });
 });
@@ -98,7 +90,7 @@ const drive = google.drive({
 const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3/playlistItems';
 const YOUTUBE_FETCH_TIMEOUT_MS = Number(process.env.YOUTUBE_FETCH_TIMEOUT_MS || 15000);
 const YOUTUBE_MAX_TRACKS = Math.max(1, Number(process.env.YOUTUBE_MAX_TRACKS || 200));
-const YOUTUBE_PLAYLIST_CACHE_TTL_MS = Number(process.env.YOUTUBE_PLAYLIST_CACHE_TTL_MS || 10 * 60 * 1000);
+const YOUTUBE_PLAYLIST_CACHE_TTL_MS = Number(process.env.YOUTUBE_PLAYLIST_CACHE_TTL_MS || 0);
 const youtubePlaylistCache = new Map();
 
 // Helper function to extract Folder ID from a Drive URL
@@ -114,9 +106,22 @@ const extractFolderId = (url) => {
 };
 
 const extractYouTubePlaylistId = (url) => {
+  if (!url || typeof url !== 'string') {
+    return null;
+  }
+
+  const trimmed = url.trim();
+
+  // Accept direct playlist IDs as input.
+  if (/^[a-zA-Z0-9_-]{10,}$/.test(trimmed)) {
+    return trimmed;
+  }
+
   try {
-    const parsed = new URL(url);
-    const listId = parsed.searchParams.get('list');
+    const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+    const parsed = new URL(withProtocol);
+    const listValues = parsed.searchParams.getAll('list').filter(Boolean);
+    const listId = listValues.length > 0 ? listValues[listValues.length - 1] : null;
 
     if (listId) {
       return listId.trim();
@@ -125,8 +130,8 @@ const extractYouTubePlaylistId = (url) => {
     // Ignore URL parsing errors and fall back to regex parsing.
   }
 
-  const listMatch = url.match(/[?&]list=([a-zA-Z0-9_-]+)/);
-  return listMatch?.[1] || null;
+  const matches = [...trimmed.matchAll(/(?:^|[?&])list=([a-zA-Z0-9_-]{10,})/g)];
+  return matches.length ? matches[matches.length - 1][1] : null;
 };
 
 const getRequestBaseUrl = (req) => {
@@ -222,10 +227,10 @@ app.post('/api/playlist', async (req, res) => {
 app.post('/api/youtube/playlist', async (req, res) => {
   try {
     const { youtubeUrl } = req.body;
-    const youtubeApiKey = process.env.YOUTUBE_API_KEY;
+    const youtubeApiKey = process.env.YOUTUBE_API_KEY || process.env.GOOGLE_API_KEY;
 
     if (!youtubeApiKey) {
-      return res.status(500).json({ error: 'Server misconfiguration: YOUTUBE_API_KEY is missing.' });
+      return res.status(500).json({ error: 'Server misconfiguration: YOUTUBE_API_KEY (or GOOGLE_API_KEY) is missing.' });
     }
 
     if (!youtubeUrl) {
@@ -238,7 +243,7 @@ app.post('/api/youtube/playlist', async (req, res) => {
       return res.status(400).json({ error: 'Invalid YouTube playlist link format.' });
     }
 
-    const cacheEntry = youtubePlaylistCache.get(playlistId);
+    const cacheEntry = YOUTUBE_PLAYLIST_CACHE_TTL_MS > 0 ? youtubePlaylistCache.get(playlistId) : null;
 
     if (cacheEntry && Date.now() - cacheEntry.createdAt < YOUTUBE_PLAYLIST_CACHE_TTL_MS) {
       return res.json({ playlist: cacheEntry.playlist, fromCache: true });
@@ -290,7 +295,7 @@ app.post('/api/youtube/playlist', async (req, res) => {
           videoId,
           title: rawTitle,
           artist: item?.snippet?.videoOwnerChannelTitle || 'YouTube',
-          url: `${baseUrl}/api/youtube/audio/${videoId}`,
+          url: `https://www.youtube.com/watch?v=${videoId}`,
         };
       })
       .filter(Boolean);
@@ -299,12 +304,14 @@ app.post('/api/youtube/playlist', async (req, res) => {
       return res.status(404).json({ error: 'No playable videos found in this YouTube playlist.' });
     }
 
-    youtubePlaylistCache.set(playlistId, {
-      createdAt: Date.now(),
-      playlist,
-    });
+    if (YOUTUBE_PLAYLIST_CACHE_TTL_MS > 0) {
+      youtubePlaylistCache.set(playlistId, {
+        createdAt: Date.now(),
+        playlist,
+      });
+    }
 
-    res.json({ playlist, truncated: collectedItems.length > YOUTUBE_MAX_TRACKS });
+    res.json({ playlist, playlistId, truncated: collectedItems.length > YOUTUBE_MAX_TRACKS });
   } catch (error) {
     console.error('YouTube API Error:', error?.message || error);
 
@@ -313,57 +320,6 @@ app.post('/api/youtube/playlist', async (req, res) => {
     }
 
     res.status(500).json({ error: error?.message || 'Failed to fetch playlist from YouTube.' });
-  }
-});
-
-// YouTube Endpoint: Stream audio as MP3
-app.get('/api/youtube/audio/:videoId', async (req, res) => {
-  const { videoId } = req.params;
-
-  if (!videoId || !ytdl.validateID(videoId)) {
-    return res.status(400).json({ error: 'Invalid YouTube video ID.' });
-  }
-
-  if (!ffmpegPath) {
-    return res.status(500).json({ error: 'Server misconfiguration: ffmpeg is unavailable for MP3 streaming.' });
-  }
-
-  const youtubeWatchUrl = `https://www.youtube.com/watch?v=${videoId}`;
-
-  try {
-    const sourceStream = ytdl(youtubeWatchUrl, {
-      filter: 'audioonly',
-      quality: 'highestaudio',
-      highWaterMark: 1 << 25,
-    });
-
-    res.setHeader('Content-Type', 'audio/mpeg');
-    res.setHeader('Content-Disposition', 'inline');
-    res.setHeader('Cache-Control', 'no-store');
-
-    const transcoder = ffmpeg(sourceStream)
-      .audioCodec('libmp3lame')
-      .audioBitrate(192)
-      .format('mp3')
-      .on('error', (streamError) => {
-        console.error('YouTube audio stream error:', streamError.message);
-
-        if (!res.headersSent) {
-          res.status(500).json({ error: 'Failed to stream YouTube audio.' });
-        } else {
-          res.end();
-        }
-      });
-
-    req.on('close', () => {
-      sourceStream.destroy();
-      transcoder.kill('SIGKILL');
-    });
-
-    transcoder.pipe(res, { end: true });
-  } catch (error) {
-    console.error('YouTube audio setup error:', error.message);
-    res.status(500).json({ error: 'Unable to start YouTube audio stream.' });
   }
 });
 

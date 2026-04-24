@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Play, Pause, SkipForward, SkipBack, Waves, Disc3, ChevronLeft, ChevronRight, Repeat } from 'lucide-react';
+import ReactPlayer from 'react-player';
 
 const PAGE_SIZE = 15;
 
@@ -12,8 +13,10 @@ export default function Player({ playlist }) {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const audioRef = useRef(null);
+  const youtubeRef = useRef(null);
 
   const currentTrack = playlist?.[currentIndex];
+  const isYouTubeTrack = currentTrack?.source === 'youtube';
   const trackArtist = currentTrack?.artist || currentTrack?.owner || currentTrack?.album || (currentTrack?.source === 'youtube' ? 'YouTube track' : 'Google Drive track');
   const waveformBars = [12, 18, 24, 30, 46, 58, 42, 28, 20, 34, 52, 64, 48, 36, 26, 40, 56, 44, 28, 22, 30, 50, 38, 26];
 
@@ -50,7 +53,7 @@ export default function Player({ playlist }) {
   useEffect(() => {
     const audio = audioRef.current;
 
-    if (!audio) {
+    if (!audio || isYouTubeTrack) {
       return undefined;
     }
 
@@ -85,12 +88,12 @@ export default function Player({ playlist }) {
       audio.removeEventListener('timeupdate', handleTimeUpdate);
       audio.removeEventListener('ended', handleEnded);
     };
-  }, [currentIndex, playlist, repeatOne]);
+  }, [currentIndex, playlist, repeatOne, isYouTubeTrack]);
 
   useEffect(() => {
     const audio = audioRef.current;
 
-    if (!audio) {
+    if (!audio || isYouTubeTrack) {
       return;
     }
 
@@ -99,7 +102,12 @@ export default function Player({ playlist }) {
     } else {
       audio.pause();
     }
-  }, [isPlaying, currentIndex, playlist]);
+  }, [isPlaying, currentIndex, playlist, isYouTubeTrack]);
+
+  useEffect(() => {
+    setCurrentTime(0);
+    setDuration(0);
+  }, [currentIndex]);
 
   const handleNext = () => setCurrentIndex(prev => (prev < playlist.length - 1 ? prev + 1 : 0));
   const handlePrev = () => setCurrentIndex(prev => (prev > 0 ? prev - 1 : prev));
@@ -109,6 +117,11 @@ export default function Player({ playlist }) {
   const handleSeek = (event) => {
     const value = Number(event.target.value);
     setCurrentTime(value);
+
+    if (isYouTubeTrack && youtubeRef.current) {
+      youtubeRef.current.seekTo(value, 'seconds');
+      return;
+    }
 
     if (audioRef.current) {
       audioRef.current.currentTime = value;
@@ -332,7 +345,38 @@ export default function Player({ playlist }) {
         </div>
       </div>
 
-      <audio ref={audioRef} src={currentTrack.url} preload="metadata" />
+      {isYouTubeTrack ? (
+        <div style={{ width: 0, height: 0, overflow: 'hidden' }}>
+          <ReactPlayer
+            ref={youtubeRef}
+            url={currentTrack.url}
+            playing={isPlaying}
+            width="0px"
+            height="0px"
+            onDuration={(value) => setDuration(value || 0)}
+            onProgress={({ playedSeconds }) => setCurrentTime(playedSeconds || 0)}
+            onEnded={() => {
+              if (repeatOne) {
+                youtubeRef.current?.seekTo(0, 'seconds');
+                return;
+              }
+
+              handleNext();
+            }}
+            onError={() => setIsPlaying(false)}
+            config={{
+              youtube: {
+                playerVars: {
+                  modestbranding: 1,
+                  rel: 0,
+                },
+              },
+            }}
+          />
+        </div>
+      ) : (
+        <audio ref={audioRef} src={currentTrack.url} preload="metadata" />
+      )}
     </motion.div>
   );
 }
