@@ -1,15 +1,41 @@
 # Drive Playlist Frontend
 
-A modern, visually stunning music player web app built with React and Vite. Stream songs directly from your Google Drive with a beautiful, cinematic dark UI, seamless Google OAuth sign-in, and queue pagination.
+```text
+
+                        ┌───────────────────────────────────────────────────────────┐
+                        │                                                           │
+                        │            █████╗ ██████╗ ██╗ █████╗                      │
+                        │           ██╔══██╗██╔══██╗██║██╔══██╗                     │
+                        │           ███████║██████╔╝██║███████║                     │
+                        │           ██╔══██║██╔══██╗██║██╔══██║                     │
+                        │           ██║  ██║██║  ██║██║██║  ██║                     │
+                        │           ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═╝                     │
+                        │                                                           │
+                        │   ███████╗████████╗██╗   ██╗██████╗ ██╗ ██████╗           │
+                        │   ██╔════╝╚══██╔══╝██║   ██║██╔══██╗██║██╔═══██╗          │
+                        │   ███████╗   ██║   ██║   ██║██║  ██║██║██║   ██║          │
+                        │   ╚════██║   ██║   ██║   ██║██║  ██║██║██║   ██║          │
+                        │   ███████║   ██║   ╚██████╔╝██████╔╝██║╚██████╔╝          │
+                        │   ╚══════╝   ╚═╝    ╚═════╝ ╚═════╝ ╚═╝ ╚═════╝           │
+                        │                                                           │
+                        │    Creative Design • UI/UX • Branding • Studio            │
+                        │                                                           │
+                        └───────────────────────────────────────────────────────────┘
+
+```
+
+
+A modern, visually stunning music player web app built with React and Vite. Stream songs from Google Drive folders and YouTube playlists with a cinematic UI, seamless Google OAuth sign-in, and queue pagination.
 
 ---
 
 ## 📋 Overview
 
-This is a full-featured music streaming frontend that connects to a Google Drive folder and plays audio files. It features:
+This is a full-featured music streaming frontend that connects to Drive folders and YouTube playlists. It features:
 
 - 🎨 **Dark Cinematic UI** – Gold and cyan color accents, glass morphism panels, responsive design
 - 🔐 **Google OAuth Sign-In** – One-click login with Drive read access
+- 🔀 **Dual Source Input** – Toggle between Drive and YouTube before loading a playlist
 - 🎵 **Music Player** – Play/pause, seek bar, visualizer, volume control
 - 📱 **Queue Management** – Paginate through songs (15 per page), next/previous navigation
 - 💾 **Session Persistence** – Stay signed in across browser reloads
@@ -25,6 +51,7 @@ This is a full-featured music streaming frontend that connects to a Google Drive
 | **Vite** | Lightning-fast build tool and dev server |
 | **Framer Motion** | Smooth animations and transitions |
 | **Lucide React** | Beautiful icon library |
+| **React Player** | Reliable YouTube playback integration |
 | **Tailwind CSS** | Utility-first styling (custom theme applied) |
 | **PostCSS + Autoprefixer** | CSS processing and browser compatibility |
 | **ESLint + Prettier** | Code quality and formatting |
@@ -104,8 +131,8 @@ frontend/
 │   │   ├── Header.jsx          # Top navigation bar with user info & sign-out
 │   │   ├── SignInPage.jsx       # Google OAuth login screen
 │   │   ├── Home.jsx             # Main dashboard & queue loader
-│   │   ├── DriveInput.jsx       # Drive folder URL input form
-│   │   └── Player.jsx           # Audio player with queue & controls
+│   │   ├── DriveInput.jsx       # Source toggle + link input form
+│   │   └── Player.jsx           # Drive audio + YouTube player controls
 │   ├── App.jsx                  # Root component with auth state management
 │   ├── App.css                  # Global music-themed styles
 │   ├── index.css                # Base styles
@@ -173,29 +200,35 @@ This grants permission to read user profile and access Drive files.
 
 **Key Features:**
 - Shows user info in header
-- `DriveInput` component for pasting Drive folder URL
-- Fetches playlist from backend via `/api/playlist` endpoint
+- `DriveInput` component for Drive/YouTube source selection and link entry
+- Fetches playlist from backend via `/api/playlist` or `/api/youtube/playlist`
 - Displays status & summary cards
 - Integrates `Player` component for playback
 - Queue management and pagination setup
 
 **Flow:**
-1. User pastes Drive folder URL
-2. Frontend POSTs to backend with URL + access token
-3. Backend returns playlist array
-4. Player displays songs in queue (15 per page)
+1. User picks Drive or YouTube
+2. User pastes source link
+3. Frontend POSTs to source-specific backend endpoint
+4. Backend returns normalized playlist array
+5. Player displays songs in queue (15 per page)
 
 ---
 
 ### `DriveInput.jsx`
-**Purpose:** Drive folder URL input form
+**Purpose:** Source-aware playlist URL input form
 
 **Key Features:**
-- Text input for Google Drive folder link
-- URL validation (basic pattern check)
+- Source toggle buttons for Drive and YouTube
+- Text input for source URL
 - Submit button to fetch songs
 - Loading/error state feedback
-- Instructions for where to find share link
+
+**Accepted URL Formats:**
+```
+https://drive.google.com/drive/folders/1ABC123XYZ...
+https://www.youtube.com/playlist?list=PLxxxxxxxxxxxx
+```
 
 **Accepted URL Format:**
 ```
@@ -214,6 +247,7 @@ https://drive.google.com/drive/folders/1ABC123XYZ...
 - **Visualizer:** Animated bars sync to audio playback
 - **Queue Navigation:** "Previous 15" and "Next 15" buttons
 - **Progress Tracking:** Shows current time and total duration
+- **Source-aware Playback:** Uses `<audio>` for Drive and ReactPlayer for YouTube
 
 **Queue Pagination:**
 - Page size: 15 songs
@@ -257,11 +291,11 @@ https://drive.google.com/drive/folders/1ABC123XYZ...
                                  │
                                  └─ Redirect to Home
                                     │
-                                    └─ Paste Drive folder URL
+                                    └─ Select source + paste playlist URL
                                        │
-                                       └─ POST to /api/playlist
+                                      └─ POST to source endpoint
                                           │
-                                          ├─ Backend fetches songs
+                                        ├─ Backend fetches source playlist
                                           └─ Return playlist
                                              │
                                              └─ Player displays queue
@@ -279,6 +313,8 @@ https://drive.google.com/drive/folders/1ABC123XYZ...
 |---|---|---|
 | `VITE_GOOGLE_CLIENT_ID` | Google OAuth 2.0 Client ID | `123456789.apps.googleusercontent.com` |
 | `VITE_BACKEND_URL` | Backend API endpoint | `http://localhost:5000` |
+
+Note: YouTube API configuration stays in backend env (`YOUTUBE_API_KEY`), not frontend env.
 
 ### `.env.local` (Development)
 

@@ -9,11 +9,36 @@
 [![Google APIs](https://img.shields.io/badge/Google_APIs-39.2.0-yellowgreen.svg)]
 
 
-Drive Playlist is a full-stack music web application that lets users connect a Google Drive folder, fetch audio files, and play them in a modern music-player interface.
+```text
+
+                        ┌───────────────────────────────────────────────────────────┐
+                        │                                                           │
+                        │            █████╗ ██████╗ ██╗ █████╗                      │
+                        │           ██╔══██╗██╔══██╗██║██╔══██╗                     │
+                        │           ███████║██████╔╝██║███████║                     │
+                        │           ██╔══██║██╔══██╗██║██╔══██║                     │
+                        │           ██║  ██║██║  ██║██║██║  ██║                     │
+                        │           ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═╝                     │
+                        │                                                           │
+                        │   ███████╗████████╗██╗   ██╗██████╗ ██╗ ██████╗           │
+                        │   ██╔════╝╚══██╔══╝██║   ██║██╔══██╗██║██╔═══██╗          │
+                        │   ███████╗   ██║   ██║   ██║██║  ██║██║██║   ██║          │
+                        │   ╚════██║   ██║   ██║   ██║██║  ██║██║██║   ██║          │
+                        │   ███████║   ██║   ╚██████╔╝██████╔╝██║╚██████╔╝          │
+                        │   ╚══════╝   ╚═╝    ╚═════╝ ╚═════╝ ╚═╝ ╚═════╝           │
+                        │                                                           │
+                        │    Creative Design • UI/UX • Branding • Studio            │
+                        │                                                           │
+                        └───────────────────────────────────────────────────────────┘
+
+```
+
+
+Drive Playlist is a full-stack music web application that lets users connect either a Google Drive folder or a YouTube playlist, fetch tracks, and play them in a modern music-player interface.
 
 This repository contains:
-- `frontend`: React + Vite client application
-- `backend`: Node.js + Express API service for Google Drive file discovery
+- `frontend`: React + Vite client application with a dual-source player
+- `backend`: Node.js + Express API service for Drive and YouTube playlist discovery
 
 ## 1. Project Overview
 
@@ -21,8 +46,8 @@ Drive Playlist is designed to make personal cloud music libraries easy to play w
 
 Core idea:
 - User signs in from the frontend
-- User pastes a Google Drive folder link
-- Backend fetches audio files from that folder
+- User selects source (Drive or YouTube) and pastes a link
+- Backend fetches tracks from the selected source
 - Frontend renders a queue and streams tracks
 
 ## 2. End-to-End Workflow
@@ -30,19 +55,20 @@ Core idea:
 ### High-level flow
 1. User opens the frontend app.
 2. User signs in (Google sign-in available, manual form also exists in current code).
-3. User pastes a Google Drive folder URL.
-4. Frontend sends a POST request to backend `/api/playlist`.
-5. Backend extracts folder ID and requests files from Google Drive API.
-6. Backend filters to `audio/*` MIME types and paginates until all tracks are fetched.
-7. Backend returns playlist JSON.
+3. User selects Drive or YouTube in the source toggle.
+4. User pastes a Drive folder URL or YouTube playlist URL.
+5. Frontend sends a POST request:
+  - Drive: `/api/playlist`
+  - YouTube: `/api/youtube/playlist`
+6. Backend fetches and normalizes playlist items for the selected source.
+7. Backend returns playlist JSON with `source` metadata.
 8. Frontend loads playlist into player and queue (15 tracks per page in queue view).
 
 ### Current integration note
-Current code has a mismatch to be aware of:
-- Frontend request includes `accessToken` in the request body.
-- Backend currently authenticates Google Drive calls using `GOOGLE_API_KEY` only.
-
-The app still works with API key-based backend flow, but if you want strict OAuth token flow, align frontend and backend auth modes.
+Current implementation is API-key based for backend source fetching:
+- Drive endpoint uses `GOOGLE_API_KEY`
+- YouTube playlist endpoint uses `YOUTUBE_API_KEY` (fallback to `GOOGLE_API_KEY`)
+- YouTube track playback is handled in the frontend player via `react-player`
 
 ## 3. Project Structure
 
@@ -91,6 +117,7 @@ Drive_playlist/
 | Backend | Node.js | JavaScript runtime |
 | Backend | Express | REST API server |
 | Backend | googleapis | Google Drive API integration |
+| Backend | YouTube Data API v3 (HTTP) | YouTube playlist item discovery |
 | Backend | cors | Cross-origin request handling |
 | Backend | dotenv | Environment variable management |
 | Infrastructure | Vercel | Frontend deployment platform |
@@ -101,7 +128,9 @@ Drive_playlist/
 
 | Feature | Description | Current Behavior |
 |---|---|---|
+| Source toggle input | Lets user choose Drive or YouTube before loading | Two source buttons in input card |
 | Google Drive ingestion | Accepts a Drive folder link and fetches track metadata | Uses backend endpoint `POST /api/playlist` |
+| YouTube playlist ingestion | Accepts a YouTube playlist link and fetches video-backed tracks | Uses backend endpoint `POST /api/youtube/playlist` |
 | Audio filtering | Includes only audio MIME type files | Filters with `mimeType contains 'audio/'` |
 | Full backend pagination | Fetches all files across Drive API pages | Loops with `nextPageToken` until complete |
 | Music-themed UI | Cinematic, modern interface focused on playback | Implemented in React components and global styles |
@@ -124,18 +153,19 @@ Drive_playlist/
 
 ### `Home.jsx`
 - Main dashboard after sign-in
-- Handles Drive link submission
-- Calls backend `/api/playlist`
+- Handles source-aware link submission (Drive or YouTube)
+- Calls backend `/api/playlist` or `/api/youtube/playlist`
 - Displays connection state, playlist status, and player section
 
 ### `DriveInput.jsx`
-- Input form for Google Drive folder links
+- Input form with source toggle and link entry
 - Triggers playlist fetch callback
 
 ### `Player.jsx`
 - Audio player controls
 - Track queue rendering
 - 15-item page navigation for large queues
+- Uses native audio for Drive tracks and ReactPlayer for YouTube tracks
 
 ### `Header.jsx`
 - Top navigation and branding
@@ -146,11 +176,12 @@ Drive_playlist/
 
 ### `server.js`
 - Starts Express app and middleware
-- Exposes `POST /api/playlist`
+- Exposes `POST /api/playlist` and `POST /api/youtube/playlist`
 - Extracts Drive folder ID from incoming URL
 - Uses Google Drive API to list files in folder
 - Filters by `mimeType contains 'audio/'`
 - Paginates through all file pages
+- Resolves YouTube playlist IDs and fetches playlist items from YouTube Data API
 - Returns normalized playlist objects
 
 Response format:
@@ -159,8 +190,16 @@ Response format:
   "playlist": [
     {
       "id": "...",
+      "source": "drive",
       "title": "Track Name",
       "url": "https://www.googleapis.com/drive/v3/files/<id>?alt=media&key=<API_KEY>"
+    },
+    {
+      "id": "...",
+      "source": "youtube",
+      "videoId": "...",
+      "title": "Track Name",
+      "url": "https://www.youtube.com/watch?v=<videoId>"
     }
   ]
 }
@@ -172,6 +211,7 @@ Response format:
 - Node.js 18+
 - npm 9+
 - Google Cloud project with Drive API enabled
+- YouTube Data API v3 key for YouTube playlist loading
 
 ### 8.1 Clone Repository
 
@@ -192,6 +232,10 @@ Create `backend/.env`:
 ```env
 PORT=5000
 GOOGLE_API_KEY=your_google_api_key
+YOUTUBE_API_KEY=your_youtube_api_key
+YOUTUBE_MAX_TRACKS=200
+YOUTUBE_FETCH_TIMEOUT_MS=15000
+YOUTUBE_PLAYLIST_CACHE_TTL_MS=600000
 ```
 
 Run backend:
@@ -231,6 +275,10 @@ Frontend local URL:
 |---|---|---|---|
 | `PORT` | No | API server port (default is `5000`) | `5000` |
 | `GOOGLE_API_KEY` | Yes | Google API key with Drive API enabled | `AIza...` |
+| `YOUTUBE_API_KEY` | Recommended | YouTube Data API key (fallback to `GOOGLE_API_KEY`) | `AIza...` |
+| `YOUTUBE_MAX_TRACKS` | No | Maximum tracks returned per YouTube playlist request | `200` |
+| `YOUTUBE_FETCH_TIMEOUT_MS` | No | Timeout for YouTube API request in milliseconds | `15000` |
+| `YOUTUBE_PLAYLIST_CACHE_TTL_MS` | No | In-memory cache duration for YouTube playlist responses | `600000` |
 
 ### Frontend env vars
 
@@ -265,6 +313,7 @@ npm run start
 5. Add env vars:
    - `PORT=5000`
    - `GOOGLE_API_KEY=<your_key>`
+  - `YOUTUBE_API_KEY=<your_key>`
 6. Deploy and copy the Render service URL.
 
 ### 10.3 Deploy Frontend to Vercel
@@ -306,10 +355,11 @@ In Google Cloud Console, add your deployed frontend domain to:
 1. Open the app URL.
 2. Sign in from the sign-in page.
 3. Paste a Google Drive folder link containing audio files.
-4. Wait for playlist sync.
-5. Start playback from the queue/player controls.
-6. Navigate queue pages to browse all tracks.
-7. Use sign-out when done.
+4. Or paste a YouTube playlist link after selecting YouTube source.
+5. Wait for playlist sync.
+6. Start playback from the queue/player controls.
+7. Navigate queue pages to browse all tracks.
+8. Use sign-out when done.
 
 ### Best practices for users
 - Keep Drive folder organized with clear filenames.

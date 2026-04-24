@@ -1,12 +1,36 @@
 # Drive Playlist Backend
 
-A lightweight Express server that bridges your React frontend with Google Drive's API to fetch and stream audio files from a shared folder. This backend handles all the complexity of Drive authentication, file listing, pagination, and media URL generation.
+```text
+
+                        ┌───────────────────────────────────────────────────────────┐
+                        │                                                           │
+                        │            █████╗ ██████╗ ██╗ █████╗                      │
+                        │           ██╔══██╗██╔══██╗██║██╔══██╗                     │
+                        │           ███████║██████╔╝██║███████║                     │
+                        │           ██╔══██║██╔══██╗██║██╔══██║                     │
+                        │           ██║  ██║██║  ██║██║██║  ██║                     │
+                        │           ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═╝                     │
+                        │                                                           │
+                        │   ███████╗████████╗██╗   ██╗██████╗ ██╗ ██████╗           │
+                        │   ██╔════╝╚══██╔══╝██║   ██║██╔══██╗██║██╔═══██╗          │
+                        │   ███████╗   ██║   ██║   ██║██║  ██║██║██║   ██║          │
+                        │   ╚════██║   ██║   ██║   ██║██║  ██║██║██║   ██║          │
+                        │   ███████║   ██║   ╚██████╔╝██████╔╝██║╚██████╔╝          │
+                        │   ╚══════╝   ╚═╝    ╚═════╝ ╚═════╝ ╚═╝ ╚═════╝           │
+                        │                                                           │
+                        │    Creative Design • UI/UX • Branding • Studio            │
+                        │                                                           │
+                        └───────────────────────────────────────────────────────────┘
+
+```
+
+A lightweight Express server that bridges your React frontend with Google Drive and YouTube playlist APIs. It fetches and normalizes playlist metadata, then returns track lists the frontend can play.
 
 ---
 
 ## 📋 Overview
 
-The backend serves a single critical purpose: **fetch audio files from a Google Drive folder and return playable media URLs to the frontend**. It abstracts away the Google Drive API complexity and ensures secure, efficient access to your music library.
+The backend serves a critical purpose: **fetch playlist metadata from Drive folders and YouTube playlists, then return normalized track objects to the frontend**.
 
 ### Key Features
 - 🎵 **Audio File Filtering**: Automatically detects and lists only audio files (`mimeType contains 'audio/'`)
@@ -14,6 +38,7 @@ The backend serves a single critical purpose: **fetch audio files from a Google 
 - 🚗 **Shared Drives Ready**: Works with both personal and shared Google Drive folders
 - ⚡ **API-Key Direct Streaming**: Generates secure, API-key-authenticated direct streaming URLs
 - 🔍 **Natural Sorting**: Sorts files alphabetically for a predictable playlist order
+- ▶️ **YouTube Playlist Discovery**: Fetches playlist items via YouTube Data API v3
 - 🔒 **CORS Enabled**: Safely communicates with your React frontend
 
 ---
@@ -24,6 +49,7 @@ The backend serves a single critical purpose: **fetch audio files from a Google 
 |---|---|
 | **Express.js** | Lightweight web server framework |
 | **googleapis** | Official Google APIs Node.js client library |
+| **YouTube Data API v3 (HTTP)** | YouTube playlist metadata fetch |
 | **cors** | Cross-Origin Resource Sharing middleware |
 | **dotenv** | Environment variable management |
 
@@ -49,6 +75,10 @@ Create a `.env` file in the `backend` directory:
 ```env
 PORT=5000
 GOOGLE_API_KEY=your_google_api_key_here
+YOUTUBE_API_KEY=your_youtube_api_key_here
+YOUTUBE_MAX_TRACKS=200
+YOUTUBE_FETCH_TIMEOUT_MS=15000
+YOUTUBE_PLAYLIST_CACHE_TTL_MS=600000
 ```
 
 ### 3. Obtain Google API Key
@@ -145,15 +175,11 @@ Fetches all playable videos from a YouTube playlist URL and returns audio-ready 
          "videoId": "video_id",
          "title": "Track Title",
          "artist": "Channel Name",
-         "url": "http://localhost:5000/api/youtube/audio/video_id"
+         "url": "https://www.youtube.com/watch?v=video_id"
       }
    ]
 }
 ```
-
-### `GET /api/youtube/audio/:videoId`
-
-Streams YouTube audio transcoded to MP3 from the given video ID.
 
 ---
 
@@ -210,6 +236,9 @@ Frontend (React)
 | `PORT` | No | Server port | `5000` |
 | `GOOGLE_API_KEY` | **Yes** | Your Google Cloud API key | `AIzaSyD...` |
 | `YOUTUBE_API_KEY` | Recommended | YouTube Data API v3 key (falls back to `GOOGLE_API_KEY`) | `AIzaSyD...` |
+| `YOUTUBE_MAX_TRACKS` | No | Maximum YouTube tracks returned per request | `200` |
+| `YOUTUBE_FETCH_TIMEOUT_MS` | No | YouTube API request timeout in milliseconds | `15000` |
+| `YOUTUBE_PLAYLIST_CACHE_TTL_MS` | No | In-memory cache duration for YouTube playlist responses | `600000` |
 
 ### `.env` Template
 
@@ -223,6 +252,11 @@ GOOGLE_API_KEY=your_key_here_33_character_string
 
 # YouTube Data API v3 Key (recommended)
 YOUTUBE_API_KEY=your_youtube_data_api_key_here
+
+# Optional YouTube playlist tuning
+YOUTUBE_MAX_TRACKS=200
+YOUTUBE_FETCH_TIMEOUT_MS=15000
+YOUTUBE_PLAYLIST_CACHE_TTL_MS=600000
 ```
 
 ### `.env.example`
@@ -233,6 +267,9 @@ Keep a `.env.example` file in the repo (without secret values) so teammates can 
 PORT=5000
 GOOGLE_API_KEY=YOUR_GOOGLE_API_KEY_HERE
 YOUTUBE_API_KEY=YOUR_YOUTUBE_API_KEY_HERE
+YOUTUBE_MAX_TRACKS=200
+YOUTUBE_FETCH_TIMEOUT_MS=15000
+YOUTUBE_PLAYLIST_CACHE_TTL_MS=600000
 ```
 
 ---
