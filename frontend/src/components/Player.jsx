@@ -1,7 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Play, Pause, SkipForward, SkipBack, Waves, Disc3, ChevronLeft, ChevronRight, Repeat } from 'lucide-react';
-import ReactPlayer from 'react-player';
+import ReactPlayerModule from 'react-player';
+
+const ReactPlayer = ReactPlayerModule?.default || ReactPlayerModule;
 
 const PAGE_SIZE = 15;
 
