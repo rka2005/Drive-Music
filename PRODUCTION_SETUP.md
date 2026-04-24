@@ -18,6 +18,9 @@ This guide walks you through deploying the Drive Playlist app to Render (backend
    PORT=5000
    GOOGLE_API_KEY=your_google_api_key_here
    YOUTUBE_API_KEY=your_youtube_api_key_here
+   YOUTUBE_MAX_TRACKS=200
+   YOUTUBE_FETCH_TIMEOUT_MS=15000
+   YOUTUBE_PLAYLIST_CACHE_TTL_MS=600000
    FRONTEND_URL=https://your-frontend.vercel.app
    ```
 
@@ -42,6 +45,9 @@ This guide walks you through deploying the Drive Playlist app to Render (backend
 5. Scroll down to "Environment Variables" and add:
    - `GOOGLE_API_KEY`: Your Google API key
    - `YOUTUBE_API_KEY`: Your YouTube Data API v3 key
+   - `YOUTUBE_MAX_TRACKS`: `200` (recommended to keep response fast)
+   - `YOUTUBE_FETCH_TIMEOUT_MS`: `15000`
+   - `YOUTUBE_PLAYLIST_CACHE_TTL_MS`: `600000`
    - `FRONTEND_URL`: Your Vercel frontend URL (e.g., `https://drive-playlist.vercel.app`)
 6. Click "Create Web Service"
 7. Wait for the build to complete (takes ~2-3 minutes)

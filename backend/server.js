@@ -96,6 +96,10 @@ const drive = google.drive({
 });
 
 const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3/playlistItems';
+const YOUTUBE_FETCH_TIMEOUT_MS = Number(process.env.YOUTUBE_FETCH_TIMEOUT_MS || 15000);
+const YOUTUBE_MAX_TRACKS = Math.max(1, Number(process.env.YOUTUBE_MAX_TRACKS || 200));
+const YOUTUBE_PLAYLIST_CACHE_TTL_MS = Number(process.env.YOUTUBE_PLAYLIST_CACHE_TTL_MS || 10 * 60 * 1000);
+const youtubePlaylistCache = new Map();
 
 // Helper function to extract Folder ID from a Drive URL
 const extractFolderId = (url) => {
@@ -129,6 +133,20 @@ const getRequestBaseUrl = (req) => {
   const forwardedProtocol = req.headers['x-forwarded-proto'];
   const protocol = (Array.isArray(forwardedProtocol) ? forwardedProtocol[0] : forwardedProtocol)?.split(',')[0] || req.protocol;
   return `${protocol}://${req.get('host')}`;
+};
+
+const fetchWithTimeout = async (url, options = {}, timeoutMs = YOUTUBE_FETCH_TIMEOUT_MS) => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
 };
 
 // Drive Endpoint: Fetch Playlist
@@ -220,12 +238,19 @@ app.post('/api/youtube/playlist', async (req, res) => {
       return res.status(400).json({ error: 'Invalid YouTube playlist link format.' });
     }
 
+    const cacheEntry = youtubePlaylistCache.get(playlistId);
+
+    if (cacheEntry && Date.now() - cacheEntry.createdAt < YOUTUBE_PLAYLIST_CACHE_TTL_MS) {
+      return res.json({ playlist: cacheEntry.playlist, fromCache: true });
+    }
+
     const collectedItems = [];
     let pageToken = undefined;
 
     do {
       const params = new URLSearchParams({
         part: 'snippet',
+        fields: 'nextPageToken,items(snippet(title,resourceId/videoId,videoOwnerChannelTitle))',
         maxResults: '50',
         playlistId,
         key: youtubeApiKey,
@@ -235,8 +260,8 @@ app.post('/api/youtube/playlist', async (req, res) => {
         params.set('pageToken', pageToken);
       }
 
-      const response = await fetch(`${YOUTUBE_API_BASE}?${params.toString()}`);
-      const payload = await response.json();
+      const response = await fetchWithTimeout(`${YOUTUBE_API_BASE}?${params.toString()}`);
+      const payload = await response.json().catch(() => ({}));
 
       if (!response.ok) {
         const reason = payload?.error?.message || 'YouTube API request failed.';
@@ -246,10 +271,11 @@ app.post('/api/youtube/playlist', async (req, res) => {
       const pageItems = payload.items || [];
       collectedItems.push(...pageItems);
       pageToken = payload.nextPageToken || undefined;
-    } while (pageToken);
+    } while (pageToken && collectedItems.length < YOUTUBE_MAX_TRACKS);
 
     const baseUrl = getRequestBaseUrl(req);
     const playlist = collectedItems
+      .slice(0, YOUTUBE_MAX_TRACKS)
       .map((item, index) => {
         const videoId = item?.snippet?.resourceId?.videoId;
         const rawTitle = item?.snippet?.title || 'Untitled track';
@@ -273,9 +299,19 @@ app.post('/api/youtube/playlist', async (req, res) => {
       return res.status(404).json({ error: 'No playable videos found in this YouTube playlist.' });
     }
 
-    res.json({ playlist });
+    youtubePlaylistCache.set(playlistId, {
+      createdAt: Date.now(),
+      playlist,
+    });
+
+    res.json({ playlist, truncated: collectedItems.length > YOUTUBE_MAX_TRACKS });
   } catch (error) {
     console.error('YouTube API Error:', error?.message || error);
+
+    if (error?.name === 'AbortError') {
+      return res.status(504).json({ error: 'YouTube API request timed out. Please retry with a smaller playlist or try again.' });
+    }
+
     res.status(500).json({ error: error?.message || 'Failed to fetch playlist from YouTube.' });
   }
 });
