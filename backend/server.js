@@ -287,8 +287,11 @@ const getTotalUsers = async () => {
     return null;
   }
 
-  const snapshot = await firestoreDb.collection(firestoreCollections.stats).doc('overview').get();
-  return snapshot.data()?.totalUsers ?? 0;
+  const snapshot = await firestoreDb
+    .collection('users')
+    .get();
+
+  return snapshot.size;
 };
 
 // CORS configuration for production
@@ -447,10 +450,11 @@ app.post('/api/auth/google', async (req, res) => {
     const profile = await verifyGoogleIdentity(extractGoogleIdToken(req));
     const persistedUser = await upsertGoogleUser(profile, { countNewUser: true });
     const history = await getUserHistory(profile, 5);
+    const totalUsers = await getTotalUsers();
 
     res.json({
       user: persistedUser.user,
-      totalUsers: persistedUser.totalUsers ?? await getTotalUsers(),
+      totalUsers,
       history,
       firestoreConfigured: persistedUser.firestoreConfigured,
     });
