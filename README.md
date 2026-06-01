@@ -61,8 +61,12 @@ Core idea:
   - Drive: `/api/playlist`
   - YouTube: `/api/youtube/playlist`
 6. Backend fetches and normalizes playlist items for the selected source.
-7. Backend returns playlist JSON with `source` metadata.
-8. Frontend loads playlist into player and queue (15 tracks per page in queue view).
+7. Backend verifies Google identity token.
+8. Backend stores user information in Firestore.
+9. Backend records sign-in activity.
+10. Backend stores playlist history.
+11. Backend returns playlist JSON with source metadata.
+12. Frontend loads playlist into player and queue.
 
 ### Current integration note
 Current implementation is API-key based for backend source fetching:
@@ -120,6 +124,9 @@ Drive_playlist/
 | Backend | YouTube Data API v3 (HTTP) | YouTube playlist item discovery |
 | Backend | cors | Cross-origin request handling |
 | Backend | dotenv | Environment variable management |
+| Backend | Firebase Admin SDK | User authentication verification and Firestore operations |
+| Database | Firebase Firestore | User management, sign-in tracking, and playlist history storage |
+| Authentication | Google Identity Services | Secure Google Sign-In |
 | Infrastructure | Vercel | Frontend deployment platform |
 | Infrastructure | Render | Backend deployment platform |
 | Infrastructure | Git + GitHub | Version control and collaboration |
@@ -137,6 +144,11 @@ Drive_playlist/
 | Queue pagination | Keeps large track lists easy to browse | Shows 15 songs per page in queue view |
 | Session persistence | Keeps users signed in across refreshes | Stores auth state in `localStorage` |
 | Status and errors | Provides feedback during fetch and playback flow | UI shows loading, success, and error states |
+| Google Authentication | Secure Google Sign-In integration | Authenticated user sessions |
+| User History Tracking | Stores Drive and YouTube playlist activity | Saved per Google account |
+| User Analytics | Tracks total registered users | Stored in Firestore |
+| Sign-in Tracking | Records login activity and timestamps | Saved in Firestore |
+| Cloud Persistence | User data remains available across devices | Firestore backed |
 
 ## 6. Components Breakdown (Frontend)
 
@@ -173,6 +185,23 @@ Drive_playlist/
 - Sign-out action
 
 ## 7. Backend Service Breakdown
+
+### Additional Endpoints
+
+#### POST /api/auth/google
+
+Authenticates a Google user and:
+- Creates user record if first login
+- Updates last seen timestamp
+- Records sign-in event
+- Returns user profile and history
+
+#### GET /api/history
+
+Returns:
+- User profile
+- User playlist history
+- Total registered users
 
 ### `server.js`
 - Starts Express app and middleware
@@ -236,6 +265,9 @@ YOUTUBE_API_KEY=your_youtube_api_key
 YOUTUBE_MAX_TRACKS=200
 YOUTUBE_FETCH_TIMEOUT_MS=15000
 YOUTUBE_PLAYLIST_CACHE_TTL_MS=600000
+FIREBASE_CLIENT_EMAIL=your_firebase_client_email
+FIREBASE_PROJECT_ID=your_firebase_project_id
+FIREBASE_PRIVATE_KEY="your_firebase_private_key"  # Make sure place this value in double quotes but no need to place it in render
 ```
 
 Run backend:
@@ -279,6 +311,9 @@ Frontend local URL:
 | `YOUTUBE_MAX_TRACKS` | No | Maximum tracks returned per YouTube playlist request | `200` |
 | `YOUTUBE_FETCH_TIMEOUT_MS` | No | Timeout for YouTube API request in milliseconds | `15000` |
 | `YOUTUBE_PLAYLIST_CACHE_TTL_MS` | No | In-memory cache duration for YouTube playlist responses | `600000` |
+| `FIREBASE_PROJECT_ID` | Yes | Firebase project identifier |
+| `FIREBASE_CLIENT_EMAIL` | Yes | Firebase Admin SDK service account email |
+| `FIREBASE_PRIVATE_KEY` | Yes | Firebase Admin SDK private key |
 
 ### Frontend env vars
 
@@ -416,3 +451,21 @@ Maintainer contact:
 - Add API health endpoint
 - Add playlist caching and retry strategy
 - Add Docker support for one-command deployment
+
+### Upcoming Features
+
+- Playlist favorites
+- Playlist sharing
+- Recent activity feed
+- Multi-device sync
+- Advanced search and filtering
+- User profile customization
+
+## 17. Security
+
+- Google Identity Token verification
+- Firebase Admin SDK authentication
+- Firestore server-side writes
+- Protected user-specific history
+- Environment variable based secret management
+- CORS protected API endpoints
