@@ -267,7 +267,7 @@ YOUTUBE_FETCH_TIMEOUT_MS=15000
 YOUTUBE_PLAYLIST_CACHE_TTL_MS=600000
 FIREBASE_CLIENT_EMAIL=your_firebase_client_email
 FIREBASE_PROJECT_ID=your_firebase_project_id
-FIREBASE_PRIVATE_KEY="your_firebase_private_key"  # Make sure place this value in double quotes but no need to place it in render
+FIREBASE_PRIVATE_KEY="your_firebase_private_key"  # Make sure place this value in double quotes and no need to give double quotes in render environment
 ```
 
 Run backend:
@@ -311,9 +311,9 @@ Frontend local URL:
 | `YOUTUBE_MAX_TRACKS` | No | Maximum tracks returned per YouTube playlist request | `200` |
 | `YOUTUBE_FETCH_TIMEOUT_MS` | No | Timeout for YouTube API request in milliseconds | `15000` |
 | `YOUTUBE_PLAYLIST_CACHE_TTL_MS` | No | In-memory cache duration for YouTube playlist responses | `600000` |
-| `FIREBASE_PROJECT_ID` | Yes | Firebase project identifier |
-| `FIREBASE_CLIENT_EMAIL` | Yes | Firebase Admin SDK service account email |
-| `FIREBASE_PRIVATE_KEY` | Yes | Firebase Admin SDK private key |
+| `FIREBASE_PROJECT_ID` | Yes | Firebase project identifier | `drive-music-86f17` |
+| `FIREBASE_CLIENT_EMAIL` | Yes | Firebase Admin SDK service account email | `firebase....com` |
+| `FIREBASE_PRIVATE_KEY` | Yes | Firebase Admin SDK private key | `"-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"` |
 
 ### Frontend env vars
 
