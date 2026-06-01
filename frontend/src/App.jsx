@@ -9,6 +9,7 @@ const AUTH_STORAGE_KEY = 'drive-playlist-auth';
 
 export default function App() {
   const [isPageLoading, setIsPageLoading] = React.useState(() => document.readyState !== 'complete');
+  const [backendSupportsAuth, setBackendSupportsAuth] = React.useState(null);
   const [authState, setAuthState] = React.useState(() => {
     try {
       const storedAuth = window.localStorage.getItem(AUTH_STORAGE_KEY);
@@ -45,10 +46,30 @@ export default function App() {
 
   const { isSignedIn, userProfile } = authState;
 
+  React.useEffect(() => {
+    const probeBackend = async () => {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+
+      try {
+        const response = await fetch(`${backendUrl}/`);
+        const data = await response.json();
+        setBackendSupportsAuth(Boolean(data?.endpoints?.auth));
+      } catch {
+        setBackendSupportsAuth(false);
+      }
+    };
+
+    probeBackend();
+  }, []);
+
   const persistGoogleSession = React.useCallback((profile) => {
     const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
     if (!profile?.credential) {
+      return;
+    }
+
+    if (backendSupportsAuth !== true) {
       return;
     }
 
@@ -62,7 +83,7 @@ export default function App() {
     }).catch((error) => {
       console.error('Failed to persist Google session:', error);
     });
-  }, []);
+  }, [backendSupportsAuth]);
 
   const handleSignIn = (profile) => {
     const nextAuthState = {

@@ -37,13 +37,18 @@ const parseFirebaseServiceAccount = () => {
 
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
   const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+  const projectId = process.env.FIREBASE_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT;
 
-  if (clientEmail && privateKey) {
+  if (clientEmail && privateKey && projectId) {
     return {
-      projectId: process.env.FIREBASE_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT,
+      projectId,
       clientEmail,
       privateKey,
     };
+  }
+
+  if (clientEmail || privateKey || projectId) {
+    console.warn('Skipping Firebase Admin init: FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY, and FIREBASE_PROJECT_ID must all be set.');
   }
 
   return null;
@@ -52,10 +57,14 @@ const parseFirebaseServiceAccount = () => {
 const firebaseServiceAccount = parseFirebaseServiceAccount();
 
 if (!admin.apps.length && firebaseServiceAccount) {
-  admin.initializeApp({
-    credential: admin.credential.cert(firebaseServiceAccount),
-    projectId: firebaseServiceAccount.projectId,
-  });
+  try {
+    admin.initializeApp({
+      credential: admin.credential.cert(firebaseServiceAccount),
+      projectId: firebaseServiceAccount.projectId,
+    });
+  } catch (error) {
+    console.warn('Firebase Admin initialization skipped:', error.message);
+  }
 }
 
 const firestoreDb = admin.apps.length ? admin.firestore() : null;
