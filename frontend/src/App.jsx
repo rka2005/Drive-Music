@@ -45,6 +45,25 @@ export default function App() {
 
   const { isSignedIn, userProfile } = authState;
 
+  const persistGoogleSession = React.useCallback((profile) => {
+    const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+
+    if (!profile?.credential) {
+      return;
+    }
+
+    void fetch(`${backendUrl}/api/auth/google`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${profile.credential}`,
+      },
+      body: JSON.stringify({ credential: profile.credential }),
+    }).catch((error) => {
+      console.error('Failed to persist Google session:', error);
+    });
+  }, []);
+
   const handleSignIn = (profile) => {
     const nextAuthState = {
       isSignedIn: true,
@@ -53,6 +72,7 @@ export default function App() {
 
     setAuthState(nextAuthState);
     window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(nextAuthState));
+    persistGoogleSession(profile);
   };
 
   const handleSignOut = () => {

@@ -22,6 +22,8 @@ This guide walks you through deploying the Drive Playlist app to Render (backend
    YOUTUBE_FETCH_TIMEOUT_MS=15000
    YOUTUBE_PLAYLIST_CACHE_TTL_MS=600000
    FRONTEND_URL=https://your-frontend.vercel.app
+   GOOGLE_CLIENT_ID=your_google_oauth_client_id_here
+   FIREBASE_SERVICE_ACCOUNT_JSON={"projectId":"...","clientEmail":"...","privateKey":"..."}
    ```
 
 2. Push the code to GitHub:
@@ -49,6 +51,8 @@ This guide walks you through deploying the Drive Playlist app to Render (backend
    - `YOUTUBE_FETCH_TIMEOUT_MS`: `15000`
    - `YOUTUBE_PLAYLIST_CACHE_TTL_MS`: `600000`
    - `FRONTEND_URL`: Your Vercel frontend URL (e.g., `https://drive-playlist.vercel.app`)
+   - `GOOGLE_CLIENT_ID`: Your Google OAuth client ID used by the backend
+   - `FIREBASE_SERVICE_ACCOUNT_JSON`: Your Firebase service account JSON string
 6. Click "Create Web Service"
 7. Wait for the build to complete (takes ~2-3 minutes)
 8. Copy the web service URL (e.g., `https://drive-playlist-api.onrender.com`)

@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
-  ArrowRight,
   Disc3,
   Headphones,
   LockKeyhole,
@@ -25,8 +24,6 @@ const steps = [
 ];
 
 export default function SignInPage({ onSignIn }) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [googleError, setGoogleError] = useState('');
   const [googleReady, setGoogleReady] = useState(false);
   const googleButtonRef = useRef(null);
@@ -84,6 +81,7 @@ export default function SignInPage({ onSignIn }) {
             email: payload?.email,
             picture: payload?.picture,
             provider: 'google',
+            credential: response.credential,
           });
         },
       });
@@ -131,18 +129,6 @@ export default function SignInPage({ onSignIn }) {
       isMounted = false;
     };
   }, [googleClientId, onSignIn]);
-
-  const handleSubmit = (event) => {
-    event.preventDefault();
-
-    if (email.trim() && password.trim()) {
-      onSignIn?.({
-        name: email.split('@')[0],
-        email,
-        provider: 'manual',
-      });
-    }
-  };
 
   return (
     <main className="music-shell">
@@ -279,7 +265,7 @@ export default function SignInPage({ onSignIn }) {
             </div>
           </div>
 
-          <form className="form-stack signin-stack" onSubmit={handleSubmit}>
+          <div className="form-stack signin-stack">
             <div className="google-auth-block google-auth-block--featured">
               <span className="field-caption">Quick Access</span>
               <div ref={googleButtonRef} className="google-button-mount" />
@@ -303,15 +289,10 @@ export default function SignInPage({ onSignIn }) {
               </div>
             </div>
 
-            <button type="submit" className="primary-button primary-button--signin">
-              Start the session
-              <ArrowRight size={16} />
-            </button>
-
             <p className="muted-line sign-in-note">
-              Your Drive music is ready when you are. Sign in to access playback, queues, and the full listening room.
+              Your Drive music is ready when you are. Sign in with Google to access playback, queues, history, and the full listening room.
             </p>
-          </form>
+          </div>
         </motion.section>
       </div>
     </main>

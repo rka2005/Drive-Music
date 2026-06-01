@@ -2,11 +2,285 @@ import express from 'express';
 import cors from 'cors';
 import { google } from 'googleapis';
 import dotenv from 'dotenv';
+import admin from 'firebase-admin';
+import { OAuth2Client } from 'google-auth-library';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID;
+const googleAuthClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
+const currentDir = path.dirname(fileURLToPath(import.meta.url));
+
+const parseFirebaseServiceAccount = () => {
+  const rawServiceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+
+  if (rawServiceAccount) {
+    try {
+      if (rawServiceAccount.trim().endsWith('.json')) {
+        const filePath = path.isAbsolute(rawServiceAccount)
+          ? rawServiceAccount.trim()
+          : path.resolve(currentDir, rawServiceAccount.trim());
+        const fileContents = readFileSync(filePath, 'utf8');
+        return JSON.parse(fileContents);
+      }
+
+      return JSON.parse(rawServiceAccount);
+    } catch (error) {
+      console.warn('Invalid FIREBASE_SERVICE_ACCOUNT_JSON:', error.message);
+    }
+  }
+
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+
+  if (clientEmail && privateKey) {
+    return {
+      projectId: process.env.FIREBASE_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT,
+      clientEmail,
+      privateKey,
+    };
+  }
+
+  return null;
+};
+
+const firebaseServiceAccount = parseFirebaseServiceAccount();
+
+if (!admin.apps.length && firebaseServiceAccount) {
+  admin.initializeApp({
+    credential: admin.credential.cert(firebaseServiceAccount),
+    projectId: firebaseServiceAccount.projectId,
+  });
+}
+
+const firestoreDb = admin.apps.length ? admin.firestore() : null;
+
+if (firestoreDb) {
+  firestoreDb.settings({ ignoreUndefinedProperties: true });
+}
+
+const firestoreCollections = {
+  stats: 'app_stats',
+  users: 'users',
+};
+
+const getFirestoreConfigured = () => Boolean(firestoreDb);
+
+const decodeJwtPayload = (token) => {
+  try {
+    const payload = token.split('.')[1];
+
+    if (!payload) {
+      return null;
+    }
+
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), '=');
+    const decoded = Buffer.from(padded, 'base64').toString('utf8');
+    return JSON.parse(decoded);
+  } catch {
+    return null;
+  }
+};
+
+const extractGoogleIdToken = (req) => {
+  const authorizationHeader = req.headers.authorization;
+
+  if (authorizationHeader?.startsWith('Bearer ')) {
+    return authorizationHeader.slice(7).trim();
+  }
+
+  return req.body?.credential || req.body?.idToken || null;
+};
+
+const verifyGoogleIdentity = async (idToken) => {
+  if (!idToken) {
+    throw new Error('Google sign-in token is required.');
+  }
+
+  if (googleAuthClient) {
+    const ticket = await googleAuthClient.verifyIdToken({
+      idToken,
+      audience: GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+
+    if (!payload?.sub) {
+      throw new Error('Unable to verify Google identity token.');
+    }
+
+    return {
+      uid: payload.sub,
+      name: payload.name || payload.given_name || 'Google user',
+      email: payload.email || '',
+      picture: payload.picture || '',
+      emailVerified: Boolean(payload.email_verified),
+      credential: idToken,
+    };
+  }
+
+  const payload = decodeJwtPayload(idToken);
+
+  if (!payload?.sub) {
+    throw new Error('Unable to decode Google identity token.');
+  }
+
+  return {
+    uid: payload.sub,
+    name: payload.name || payload.given_name || 'Google user',
+    email: payload.email || '',
+    picture: payload.picture || '',
+    emailVerified: Boolean(payload.email_verified),
+    credential: idToken,
+  };
+};
+
+const serializeTimestamp = (value) => {
+  if (!value) {
+    return null;
+  }
+
+  if (typeof value.toDate === 'function') {
+    return value.toDate().toISOString();
+  }
+
+  return value;
+};
+
+const serializeUserProfile = (profile) => ({
+  uid: profile.uid,
+  name: profile.name,
+  email: profile.email,
+  picture: profile.picture,
+  provider: 'google',
+  emailVerified: profile.emailVerified,
+});
+
+const upsertGoogleUser = async (profile, { countNewUser = false } = {}) => {
+  if (!firestoreDb) {
+    return {
+      user: serializeUserProfile(profile),
+      totalUsers: null,
+      firestoreConfigured: false,
+    };
+  }
+
+  const userRef = firestoreDb.collection(firestoreCollections.users).doc(profile.uid);
+  const statsRef = firestoreDb.collection(firestoreCollections.stats).doc('overview');
+  const timestamp = admin.firestore.FieldValue.serverTimestamp();
+
+  await firestoreDb.runTransaction(async (transaction) => {
+    const userSnap = await transaction.get(userRef);
+
+    if (!userSnap.exists) {
+      transaction.set(userRef, {
+        ...serializeUserProfile(profile),
+        createdAt: timestamp,
+        lastSeenAt: timestamp,
+        historyCount: 0,
+      });
+
+      if (countNewUser) {
+        transaction.set(statsRef, {
+          totalUsers: admin.firestore.FieldValue.increment(1),
+          updatedAt: timestamp,
+        }, { merge: true });
+      }
+
+      return;
+    }
+
+    transaction.set(userRef, {
+      ...serializeUserProfile(profile),
+      lastSeenAt: timestamp,
+      updatedAt: timestamp,
+    }, { merge: true });
+  });
+
+  const statsSnap = await statsRef.get().catch(() => null);
+  const totalUsers = statsSnap?.data()?.totalUsers ?? null;
+
+  return {
+    user: serializeUserProfile(profile),
+    totalUsers,
+    firestoreConfigured: true,
+  };
+};
+
+const recordHistoryEntry = async (profile, entry) => {
+  if (!firestoreDb) {
+    return null;
+  }
+
+  const userRef = firestoreDb.collection(firestoreCollections.users).doc(profile.uid);
+  const historyRef = userRef.collection('history').doc();
+  const recordedAt = new Date().toISOString();
+
+  const historyEntry = {
+    source: entry.source,
+    sourceLabel: entry.sourceLabel,
+    inputValue: entry.inputValue,
+    playlistId: entry.playlistId || null,
+    playlistTitle: entry.playlistTitle || entry.inputValue || '',
+    trackCount: entry.trackCount || 0,
+    trackPreview: entry.trackPreview || [],
+    recordedAt,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  };
+
+  await historyRef.set(historyEntry);
+
+  await userRef.set({
+    lastActiveAt: admin.firestore.FieldValue.serverTimestamp(),
+    lastHistoryAt: admin.firestore.FieldValue.serverTimestamp(),
+    historyCount: admin.firestore.FieldValue.increment(1),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  }, { merge: true });
+
+  return {
+    id: historyRef.id,
+    ...historyEntry,
+  };
+};
+
+const getUserHistory = async (profile, limit = 10) => {
+  if (!firestoreDb) {
+    return [];
+  }
+
+  const snapshot = await firestoreDb
+    .collection(firestoreCollections.users)
+    .doc(profile.uid)
+    .collection('history')
+    .orderBy('createdAt', 'desc')
+    .limit(limit)
+    .get();
+
+  return snapshot.docs.map((doc) => {
+    const data = doc.data();
+
+    return {
+      id: doc.id,
+      ...data,
+      createdAt: serializeTimestamp(data.createdAt) || data.recordedAt || null,
+    };
+  });
+};
+
+const getTotalUsers = async () => {
+  if (!firestoreDb) {
+    return null;
+  }
+
+  const snapshot = await firestoreDb.collection(firestoreCollections.stats).doc('overview').get();
+  return snapshot.data()?.totalUsers ?? 0;
+};
 
 // CORS configuration for production
 const normalizeOrigin = (value) => {
@@ -71,14 +345,19 @@ app.get('/', (_req, res) => {
     status: 'ok',
     endpoints: {
       health: '/health',
+      auth: '/api/auth/google',
       drivePlaylist: '/api/playlist',
       youtubePlaylist: '/api/youtube/playlist',
+      history: '/api/history',
     }
   });
 });
 
 app.get('/health', (_req, res) => {
-  res.status(200).json({ status: 'ok' });
+  res.status(200).json({
+    status: 'ok',
+    firestoreConfigured: getFirestoreConfigured(),
+  });
 });
 
 // Initialize Google Drive API client
@@ -154,10 +433,59 @@ const fetchWithTimeout = async (url, options = {}, timeoutMs = YOUTUBE_FETCH_TIM
   }
 };
 
+app.post('/api/auth/google', async (req, res) => {
+  try {
+    const profile = await verifyGoogleIdentity(extractGoogleIdToken(req));
+    const persistedUser = await upsertGoogleUser(profile, { countNewUser: true });
+    const history = await getUserHistory(profile, 5);
+
+    res.json({
+      user: persistedUser.user,
+      totalUsers: persistedUser.totalUsers ?? await getTotalUsers(),
+      history,
+      firestoreConfigured: persistedUser.firestoreConfigured,
+    });
+  } catch (error) {
+    console.error('Google auth error:', error?.message || error);
+    res.status(400).json({ error: error?.message || 'Failed to authenticate Google user.' });
+  }
+});
+
+app.get('/api/history', async (req, res) => {
+  try {
+    const profile = await verifyGoogleIdentity(extractGoogleIdToken(req));
+    const [history, totalUsers] = await Promise.all([
+      getUserHistory(profile, 12),
+      getTotalUsers(),
+    ]);
+
+    res.json({
+      user: serializeUserProfile(profile),
+      totalUsers,
+      history,
+      firestoreConfigured: getFirestoreConfigured(),
+    });
+  } catch (error) {
+    console.error('History fetch error:', error?.message || error);
+    res.status(400).json({ error: error?.message || 'Failed to load user history.' });
+  }
+});
+
+const buildHistoryEntryPayload = (source, inputValue, extra = {}) => ({
+  source,
+  sourceLabel: source === 'youtube' ? 'YouTube' : 'Drive',
+  inputValue,
+  playlistId: extra.playlistId || null,
+  playlistTitle: extra.playlistTitle || inputValue,
+  trackCount: extra.trackCount || 0,
+  trackPreview: extra.trackPreview || [],
+});
+
 // Drive Endpoint: Fetch Playlist
 app.post('/api/playlist', async (req, res) => {
   try {
     const { driveUrl } = req.body;
+    const profile = await verifyGoogleIdentity(extractGoogleIdToken(req));
 
     if (!process.env.GOOGLE_API_KEY) {
       return res.status(500).json({ error: 'Server misconfiguration: GOOGLE_API_KEY is missing.' });
@@ -208,7 +536,13 @@ app.post('/api/playlist', async (req, res) => {
       url: `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media&key=${process.env.GOOGLE_API_KEY}`
     }));
 
-    res.json({ playlist });
+    const historyEntry = await recordHistoryEntry(profile, buildHistoryEntryPayload('drive', driveUrl, {
+      playlistTitle: driveUrl,
+      trackCount: playlist.length,
+      trackPreview: playlist.slice(0, 3).map((track) => track.title),
+    }));
+
+    res.json({ playlist, historyEntry });
   } catch (error) {
     const driveError = error?.response?.data?.error;
     console.error('Drive API Error:', driveError || error.message);
@@ -227,6 +561,7 @@ app.post('/api/playlist', async (req, res) => {
 app.post('/api/youtube/playlist', async (req, res) => {
   try {
     const { youtubeUrl } = req.body;
+    const profile = await verifyGoogleIdentity(extractGoogleIdToken(req));
     const youtubeApiKey = process.env.YOUTUBE_API_KEY || process.env.GOOGLE_API_KEY;
 
     if (!youtubeApiKey) {
@@ -311,7 +646,14 @@ app.post('/api/youtube/playlist', async (req, res) => {
       });
     }
 
-    res.json({ playlist, playlistId, truncated: collectedItems.length > YOUTUBE_MAX_TRACKS });
+    const historyEntry = await recordHistoryEntry(profile, buildHistoryEntryPayload('youtube', youtubeUrl, {
+      playlistId,
+      playlistTitle: youtubeUrl,
+      trackCount: playlist.length,
+      trackPreview: playlist.slice(0, 3).map((track) => track.title),
+    }));
+
+    res.json({ playlist, playlistId, truncated: collectedItems.length > YOUTUBE_MAX_TRACKS, historyEntry });
   } catch (error) {
     console.error('YouTube API Error:', error?.message || error);
 

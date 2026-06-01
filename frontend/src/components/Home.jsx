@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import Header from './Header';
 import DriveInput from './DriveInput';
 import Loader from './Loader';
 import Player from './Player';
+import HistorySidebar from './HistorySidebar';
 import { Music4, Disc3, Radio, Sparkles, AlertCircle } from 'lucide-react';
+
+const getBackendUrl = () => import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
 export default function Home({ onSignOut, userProfile }) {
   const [playlist, setPlaylist] = useState([]);
@@ -12,7 +15,88 @@ export default function Home({ onSignOut, userProfile }) {
   const [connectedLabel, setConnectedLabel] = useState('Waiting for a Drive link');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [historyItems, setHistoryItems] = useState([]);
+  const [historyError, setHistoryError] = useState('');
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(true);
+  const [supportsHistory, setSupportsHistory] = useState(null);
+  const authToken = userProfile?.credential;
   const sourceLabel = source === 'youtube' ? 'YouTube' : 'Drive';
+
+  useEffect(() => {
+    const loadHistory = async () => {
+      if (!authToken) {
+        setHistoryItems([]);
+        return;
+      }
+
+      if (supportsHistory === null) {
+        return;
+      }
+
+      if (supportsHistory === false) {
+        setHistoryItems([]);
+        return;
+      }
+
+      setHistoryLoading(true);
+      setHistoryError('');
+
+      try {
+        const response = await fetch(`${getBackendUrl()}/api/history`, {
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+          },
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to load history');
+        }
+
+        setHistoryItems(Array.isArray(data.history) ? data.history : []);
+      } catch (loadError) {
+        setHistoryError(loadError.message);
+        setHistoryItems([]);
+      } finally {
+        setHistoryLoading(false);
+      }
+    };
+
+    loadHistory();
+  }, [authToken, supportsHistory]);
+
+  useEffect(() => {
+    const probeBackendCapabilities = async () => {
+      if (!authToken) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`${getBackendUrl()}/`);
+        const data = await response.json();
+        const hasHistoryRoute = Boolean(data?.endpoints?.history);
+
+        setSupportsHistory(hasHistoryRoute);
+      } catch {
+        setSupportsHistory(false);
+      }
+    };
+
+    probeBackendCapabilities();
+  }, [authToken]);
+
+  const syncHistoryEntry = (historyEntry) => {
+    if (!historyEntry) {
+      return;
+    }
+
+    setHistoryItems((currentHistory) => {
+      const nextHistory = [historyEntry, ...currentHistory.filter((item) => item.id !== historyEntry.id)];
+      return nextHistory.slice(0, 12);
+    });
+  };
 
   const handleFetchPlaylist = async ({ source: selectedSource, link }) => {
     const nextSource = selectedSource || source;
@@ -24,18 +108,18 @@ export default function Home({ onSignOut, userProfile }) {
     setError(null);
 
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+      const backendUrl = getBackendUrl();
       const endpoint = isYouTube ? '/api/youtube/playlist' : '/api/playlist';
       const payload = isYouTube
         ? { youtubeUrl: link }
-        : {
-            driveUrl: link,
-            accessToken: userProfile.googleAccessToken,
-          };
+        : { driveUrl: link };
 
       const response = await fetch(`${backendUrl}${endpoint}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        },
         body: JSON.stringify(payload)
       });
 
@@ -46,6 +130,7 @@ export default function Home({ onSignOut, userProfile }) {
       }
 
       setPlaylist(data.playlist || []);
+      syncHistoryEntry(data.historyEntry);
     } catch (err) {
       setError(err.message);
       setPlaylist([]);
@@ -63,8 +148,17 @@ export default function Home({ onSignOut, userProfile }) {
     >
       <Header onSignOut={onSignOut} userProfile={userProfile} />
 
-      <div className="music-grid music-grid--home">
-        <section className="music-stack">
+      <div className={`music-grid music-grid--home ${isHistoryOpen ? 'is-sidebar-open' : 'is-sidebar-collapsed'}`}>
+        <HistorySidebar
+          historyItems={historyItems}
+          isOpen={isHistoryOpen}
+          onToggle={() => setIsHistoryOpen((previousValue) => !previousValue)}
+          isLoading={historyLoading}
+          error={historyError}
+          userProfile={userProfile}
+        />
+
+        <section className="music-stack music-stack--main">
           <motion.div
             className="glass-panel hero-card"
             initial={{ opacity: 0, y: 18 }}

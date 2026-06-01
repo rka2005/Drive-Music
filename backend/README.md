@@ -25,6 +25,7 @@
 ```
 
 A lightweight Express server that bridges your React frontend with Google Drive and YouTube playlist APIs. It fetches and normalizes playlist metadata, then returns track lists the frontend can play.
+It also verifies Google sign-in on the backend and stores per-user history in Firestore.
 
 ---
 
@@ -49,6 +50,8 @@ The backend serves a critical purpose: **fetch playlist metadata from Drive fold
 |---|---|
 | **Express.js** | Lightweight web server framework |
 | **googleapis** | Official Google APIs Node.js client library |
+| **firebase-admin** | Server-side Firestore access and user stats |
+| **google-auth-library** | Google ID token verification |
 | **YouTube Data API v3 (HTTP)** | YouTube playlist metadata fetch |
 | **cors** | Cross-Origin Resource Sharing middleware |
 | **dotenv** | Environment variable management |
@@ -79,6 +82,8 @@ YOUTUBE_API_KEY=your_youtube_api_key_here
 YOUTUBE_MAX_TRACKS=200
 YOUTUBE_FETCH_TIMEOUT_MS=15000
 YOUTUBE_PLAYLIST_CACHE_TTL_MS=600000
+GOOGLE_CLIENT_ID=your_google_oauth_client_id_here
+FIREBASE_SERVICE_ACCOUNT_JSON={"projectId":"...","clientEmail":"...","privateKey":"..."}
 ```
 
 ### 3. Obtain Google API Key
@@ -165,6 +170,21 @@ Fetches all playable videos from a YouTube playlist URL and returns audio-ready 
 }
 ```
 
+### `POST /api/auth/google`
+
+Verifies the Google ID token, creates or updates the backend user profile, and increments the total user count when a new user signs in.
+
+**Request:**
+```json
+{
+   "credential": "google_id_token"
+}
+```
+
+### `GET /api/history`
+
+Returns the current Google user profile, total user count, and the most recent history entries stored in Firestore for that account.
+
 **Response (Success):**
 ```json
 {
@@ -238,6 +258,8 @@ Frontend (React)
 | `YOUTUBE_API_KEY` | Recommended | YouTube Data API v3 key (falls back to `GOOGLE_API_KEY`) | `AIzaSyD...` |
 | `YOUTUBE_MAX_TRACKS` | No | Maximum YouTube tracks returned per request | `200` |
 | `YOUTUBE_FETCH_TIMEOUT_MS` | No | YouTube API request timeout in milliseconds | `15000` |
+| `GOOGLE_CLIENT_ID` | **Yes** | Google OAuth client ID used to verify sign-in tokens | `123456.apps.googleusercontent.com` |
+| `FIREBASE_SERVICE_ACCOUNT_JSON` | **Yes** | Firebase service account JSON string for Firestore writes | `{"projectId":"..."}` |
 | `YOUTUBE_PLAYLIST_CACHE_TTL_MS` | No | In-memory cache duration for YouTube playlist responses | `600000` |
 
 ### `.env` Template
