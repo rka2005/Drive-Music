@@ -3016,6 +3016,18 @@
   outline-offset: 3px;
 }
 
+.youtube-audio-host {
+  position: fixed;
+  right: 1px;
+  bottom: 1px;
+  width: 2px;
+  height: 2px;
+  overflow: hidden;
+  opacity: 0.01;
+  pointer-events: none;
+  z-index: -1;
+}
+
 .status-card {
   padding: 22px;
 }

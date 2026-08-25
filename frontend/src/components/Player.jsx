@@ -111,6 +111,20 @@ export default function Player({ playlist }) {
     setDuration(0);
   }, [currentIndex]);
 
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && isYouTubeTrack && isPlaying) {
+        youtubeRef.current?.getInternalPlayer?.()?.playVideo?.();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [isPlaying, isYouTubeTrack]);
+
   const handleNext = () => setCurrentIndex(prev => (prev < playlist.length - 1 ? prev + 1 : 0));
   const handlePrev = () => setCurrentIndex(prev => (prev > 0 ? prev - 1 : prev));
   const togglePlay = () => setIsPlaying(!isPlaying);
@@ -348,7 +362,7 @@ export default function Player({ playlist }) {
       </div>
 
       {isYouTubeTrack ? (
-        <div style={{ width: 0, height: 0, overflow: 'hidden' }}>
+        <div className="youtube-audio-host" aria-hidden="true">
           <ReactPlayer
             ref={youtubeRef}
             url={currentTrack.url}
@@ -369,8 +383,10 @@ export default function Player({ playlist }) {
             config={{
               youtube: {
                 playerVars: {
+                  autoplay: 1,
                   modestbranding: 1,
                   rel: 0,
+                  playsinline: 1,
                 },
               },
             }}
