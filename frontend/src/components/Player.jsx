@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+// eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion';
 import { Play, Pause, SkipForward, SkipBack, Waves, Disc3, ChevronLeft, ChevronRight, Repeat } from 'lucide-react';
 import ReactPlayerModule from 'react-player';
@@ -14,8 +15,31 @@ export default function Player({ playlist }) {
   const [repeatOne, setRepeatOne] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [prevPlaylist, setPrevPlaylist] = useState(playlist);
+  const [prevIndex, setPrevIndex] = useState(currentIndex);
+
   const audioRef = useRef(null);
   const youtubeRef = useRef(null);
+  const silentAudioRef = useRef(null);
+  const SILENT_AUDIO_URI = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+
+  if (playlist !== prevPlaylist) {
+    setPrevPlaylist(playlist);
+    setCurrentIndex(0);
+    setQueuePage(0);
+    setIsPlaying(false);
+    setRepeatOne(false);
+    setCurrentTime(0);
+    setDuration(0);
+  }
+
+  if (currentIndex !== prevIndex) {
+    setPrevIndex(currentIndex);
+    const currentPage = Math.floor(currentIndex / PAGE_SIZE);
+    setQueuePage(currentPage);
+    setCurrentTime(0);
+    setDuration(0);
+  }
 
   const currentTrack = playlist?.[currentIndex];
   const isYouTubeTrack = currentTrack?.source === 'youtube';
@@ -32,25 +56,23 @@ export default function Player({ playlist }) {
     return `${minutes}:${seconds}`;
   };
 
-  useEffect(() => {
-    setCurrentIndex(0);
-    setQueuePage(0);
-    setIsPlaying(false);
-    setRepeatOne(false);
-    setCurrentTime(0);
-    setDuration(0);
-  }, [playlist]);
-
-  useEffect(() => {
-    const currentPage = Math.floor(currentIndex / PAGE_SIZE);
-    setQueuePage(currentPage);
-  }, [currentIndex]);
-
   const totalPages = Math.max(1, Math.ceil(playlist.length / PAGE_SIZE));
   const visiblePage = Math.min(queuePage, totalPages - 1);
   const pageStart = visiblePage * PAGE_SIZE;
   const pageEnd = pageStart + PAGE_SIZE;
   const visibleTracks = playlist.slice(pageStart, pageEnd);
+
+  const handleNext = useCallback(() => {
+    setCurrentIndex((prev) => (prev < playlist.length - 1 ? prev + 1 : 0));
+  }, [playlist.length]);
+
+  const handlePrev = useCallback(() => {
+    setCurrentIndex((prev) => (prev > 0 ? prev - 1 : prev));
+  }, []);
+
+  const togglePlay = () => setIsPlaying(!isPlaying);
+  const handleQueueNextPage = () => setQueuePage((prev) => Math.min(prev + 1, totalPages - 1));
+  const handleQueuePrevPage = () => setQueuePage((prev) => Math.max(prev - 1, 0));
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -90,7 +112,7 @@ export default function Player({ playlist }) {
       audio.removeEventListener('timeupdate', handleTimeUpdate);
       audio.removeEventListener('ended', handleEnded);
     };
-  }, [currentIndex, playlist, repeatOne, isYouTubeTrack]);
+  }, [currentIndex, playlist, repeatOne, isYouTubeTrack, handleNext]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -107,15 +129,35 @@ export default function Player({ playlist }) {
   }, [isPlaying, currentIndex, playlist, isYouTubeTrack]);
 
   useEffect(() => {
-    setCurrentTime(0);
-    setDuration(0);
-  }, [currentIndex]);
+    const silentAudio = silentAudioRef.current;
+    if (!silentAudio || !isYouTubeTrack) {
+      return;
+    }
+
+    if (isPlaying) {
+      silentAudio.play().catch(() => {});
+    } else {
+      silentAudio.pause();
+    }
+  }, [isPlaying, isYouTubeTrack]);
 
   useEffect(() => {
+    let timerId = null;
+
     const handleVisibilityChange = () => {
-      if (!document.hidden && isYouTubeTrack && isPlaying) {
+      if (isYouTubeTrack && isPlaying) {
+        if (silentAudioRef.current && silentAudioRef.current.paused) {
+          silentAudioRef.current.play().catch(() => {});
+        }
+
         const internalPlayer = youtubeRef.current?.getInternalPlayer?.();
         internalPlayer?.playVideo?.();
+
+        if (document.hidden) {
+          timerId = setTimeout(() => {
+            youtubeRef.current?.getInternalPlayer?.()?.playVideo?.();
+          }, 200);
+        }
       }
     };
 
@@ -123,52 +165,98 @@ export default function Player({ playlist }) {
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (timerId) {
+        clearTimeout(timerId);
+      }
     };
   }, [isPlaying, isYouTubeTrack]);
 
   useEffect(() => {
-    if (!isYouTubeTrack || !('mediaSession' in navigator)) {
+    if (!currentTrack || !('mediaSession' in navigator)) {
       return undefined;
     }
 
     const mediaSession = navigator.mediaSession;
+
+    try {
+      mediaSession.metadata = new MediaMetadata({
+        title: currentTrack.title || 'Track',
+        artist: trackArtist,
+        album: currentTrack.album || (isYouTubeTrack ? 'YouTube Playlist' : 'Google Drive Playlist'),
+        artwork: currentTrack.thumbnail ? [{ src: currentTrack.thumbnail, sizes: '512x512', type: 'image/jpeg' }] : [],
+      });
+    } catch {
+      // Ignore if MediaMetadata unsupported
+    }
+
     const play = () => {
       setIsPlaying(true);
-      youtubeRef.current?.getInternalPlayer?.()?.playVideo?.();
+      if (isYouTubeTrack) {
+        silentAudioRef.current?.play()?.catch(() => {});
+        youtubeRef.current?.getInternalPlayer?.()?.playVideo?.();
+      } else if (audioRef.current) {
+        audioRef.current.play()?.catch(() => {});
+      }
     };
+
     const pause = () => {
       setIsPlaying(false);
-      youtubeRef.current?.getInternalPlayer?.()?.pauseVideo?.();
+      if (isYouTubeTrack) {
+        silentAudioRef.current?.pause();
+        youtubeRef.current?.getInternalPlayer?.()?.pauseVideo?.();
+      } else if (audioRef.current) {
+        audioRef.current.pause();
+      }
     };
+
     const next = () => handleNext();
     const previous = () => handlePrev();
+    const seekto = (details) => {
+      if (details.seekTime !== undefined && details.seekTime !== null) {
+        const time = details.seekTime;
+        setCurrentTime(time);
+        if (isYouTubeTrack && youtubeRef.current) {
+          youtubeRef.current.seekTo(time, 'seconds');
+        } else if (audioRef.current) {
+          audioRef.current.currentTime = time;
+        }
+      }
+    };
 
-    const actionHandlers = { play, pause, nexttrack: next, previoustrack: previous };
+    const actionHandlers = { play, pause, nexttrack: next, previoustrack: previous, seekto };
 
     Object.entries(actionHandlers).forEach(([action, handler]) => {
       try {
         mediaSession.setActionHandler(action, handler);
       } catch {
-        // Media Session support differs between mobile browsers.
+        // Unsupported media session action handler
       }
     });
 
     return () => {
-      ['play', 'pause', 'nexttrack', 'previoustrack'].forEach((action) => {
+      ['play', 'pause', 'nexttrack', 'previoustrack', 'seekto'].forEach((action) => {
         try {
           mediaSession.setActionHandler(action, null);
         } catch {
-          // Some browsers reject unsupported action handlers during cleanup.
+          // Cleanup
         }
       });
     };
-  }, [isYouTubeTrack, currentIndex]);
+  }, [currentTrack, isYouTubeTrack, currentIndex, trackArtist, handleNext, handlePrev]);
 
-  const handleNext = () => setCurrentIndex(prev => (prev < playlist.length - 1 ? prev + 1 : 0));
-  const handlePrev = () => setCurrentIndex(prev => (prev > 0 ? prev - 1 : prev));
-  const togglePlay = () => setIsPlaying(!isPlaying);
-  const handleQueueNextPage = () => setQueuePage(prev => Math.min(prev + 1, totalPages - 1));
-  const handleQueuePrevPage = () => setQueuePage(prev => Math.max(prev - 1, 0));
+  useEffect(() => {
+    if ('mediaSession' in navigator && navigator.mediaSession.setPositionState && duration > 0) {
+      try {
+        navigator.mediaSession.setPositionState({
+          duration: Math.max(duration, 0),
+          playbackRate: 1,
+          position: Math.min(Math.max(currentTime, 0), duration),
+        });
+      } catch {
+        // Ignore edge cases on bounds
+      }
+    }
+  }, [currentTime, duration]);
   const handleSeek = (event) => {
     const value = Number(event.target.value);
     setCurrentTime(value);
@@ -412,17 +500,27 @@ export default function Player({ playlist }) {
             onProgress={({ playedSeconds }) => setCurrentTime(playedSeconds || 0)}
             onPlay={() => {
               setIsPlaying(true);
+              if (silentAudioRef.current && silentAudioRef.current.paused) {
+                silentAudioRef.current.play().catch(() => {});
+              }
               if ('mediaSession' in navigator) {
                 navigator.mediaSession.playbackState = 'playing';
               }
             }}
             onPause={() => {
-              if (!document.hidden) {
-                setIsPlaying(false);
+              if (document.hidden && isPlaying && isYouTubeTrack) {
+                youtubeRef.current?.getInternalPlayer?.()?.playVideo?.();
+                return;
               }
 
-              if (!document.hidden && 'mediaSession' in navigator) {
-                navigator.mediaSession.playbackState = 'paused';
+              if (!document.hidden) {
+                setIsPlaying(false);
+                if (silentAudioRef.current) {
+                  silentAudioRef.current.pause();
+                }
+                if ('mediaSession' in navigator) {
+                  navigator.mediaSession.playbackState = 'paused';
+                }
               }
             }}
             onEnded={() => {
@@ -446,6 +544,12 @@ export default function Player({ playlist }) {
                 },
               },
             }}
+          />
+          <audio
+            ref={silentAudioRef}
+            src={SILENT_AUDIO_URI}
+            loop
+            preload="auto"
           />
         </div>
       ) : (
