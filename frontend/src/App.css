@@ -669,6 +669,15 @@
   z-index: 30;
 }
 
+.header-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
 .brand-row--header {
   flex-wrap: nowrap;
   width: auto;
@@ -686,12 +695,11 @@
 }
 
 .header-user-identity--top {
-  margin-left: auto;
   flex: 0 0 auto;
 }
 
 .signout-button--header {
-  margin-left: auto;
+  margin-left: 0;
 }
 
 .history-button {
@@ -2542,17 +2550,23 @@
     gap: 10px;
   }
 
+  .header-actions {
+    width: 100%;
+    justify-content: flex-end;
+    margin-left: 0;
+  }
+
   .brand-row--header {
     width: 100%;
     gap: 10px;
   }
 
   .header-user-identity--top {
-    margin-left: auto;
+    margin-left: 0;
   }
 
   .signout-button--header {
-    width: 100%;
+    width: auto;
     justify-content: center;
     margin-left: 0;
   }
@@ -2851,12 +2865,16 @@
   width: min(390px, calc(100vw - 32px));
   height: calc(100dvh - 32px);
   min-height: 0;
+  max-width: calc(100vw - 32px);
   border-radius: 22px;
+  overflow-x: hidden;
   overflow-y: auto;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.58);
 }
 
 .history-sidebar__shell {
+  width: 100%;
+  min-width: 0;
   min-height: 100%;
   padding: 24px;
 }
@@ -2878,11 +2896,37 @@
   cursor: pointer;
 }
 
+.history-sidebar__body,
+.history-sidebar__list,
+.history-item {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.history-item__meta {
+  min-width: 0;
+}
+
+.history-item__source,
+.history-item__time,
+.history-item__title,
+.history-item__details {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.history-item__time {
+  text-align: right;
+}
+
 @media (max-width: 700px) {
   .history-sidebar {
     top: 8px;
     right: 8px;
     width: calc(100vw - 16px);
+    max-width: calc(100vw - 16px);
     height: calc(100dvh - 16px);
   }
 
@@ -2892,5 +2936,117 @@
 
   .history-button__count {
     display: none;
+  }
+}
+
+.header-card,
+.hero-card,
+.form-card,
+.status-card,
+.player-card,
+.feature-card {
+  border-color: rgba(255, 255, 255, 0.13);
+  background: linear-gradient(145deg, rgba(28, 30, 43, 0.94), rgba(10, 12, 20, 0.9));
+}
+
+.header-card {
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.32), 0 0 0 1px rgba(103, 232, 249, 0.04);
+}
+
+.hero-card {
+  padding: 38px;
+  box-shadow: 0 26px 70px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+.hero-title {
+  max-width: 12ch;
+  font-size: clamp(3.2rem, 5.4vw, 5.5rem);
+  letter-spacing: 0;
+}
+
+.hero-copy {
+  max-width: 54ch;
+  color: rgba(232, 235, 246, 0.78);
+}
+
+.feature-card {
+  padding: 22px;
+  transition: transform 180ms ease, border-color 180ms ease, background-color 180ms ease;
+}
+
+.feature-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(103, 232, 249, 0.28);
+  background: linear-gradient(145deg, rgba(32, 39, 54, 0.96), rgba(11, 16, 26, 0.92));
+}
+
+.feature-title {
+  font-size: 1.65rem;
+}
+
+.form-card {
+  border-color: rgba(212, 175, 55, 0.2);
+  box-shadow: 0 20px 55px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(212, 175, 55, 0.04);
+}
+
+.connect-title {
+  font-size: clamp(1.65rem, 2.6vw, 2.4rem);
+}
+
+.source-toggle-button {
+  min-width: 112px;
+}
+
+.input-shell {
+  min-height: 58px;
+  background: rgba(5, 8, 16, 0.55);
+}
+
+.primary-button {
+  min-width: 134px;
+  background: linear-gradient(135deg, #fff2b8 0%, #e1bb4a 48%, #bd8b23 100%);
+}
+
+.primary-button:focus-visible,
+.source-toggle-button:focus-visible,
+.signout-button:focus-visible,
+.header-user-avatar:focus-visible,
+.history-button:focus-visible {
+  outline: 2px solid #67e8f9;
+  outline-offset: 3px;
+}
+
+.status-card {
+  padding: 22px;
+}
+
+.status-copy {
+  font-size: 0.92rem;
+}
+
+@media (max-width: 700px) {
+  .hero-card {
+    padding: 22px 18px;
+  }
+
+  .hero-title {
+    font-size: clamp(2.8rem, 13vw, 4.2rem);
+  }
+
+  .connect-head {
+    align-items: flex-start;
+  }
+
+  .mini-status {
+    font-size: 9px;
+    letter-spacing: 0.14em;
+  }
+
+  .form-row {
+    align-items: stretch;
+  }
+
+  .primary-button {
+    width: 100%;
   }
 }

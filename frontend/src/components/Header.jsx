@@ -43,6 +43,9 @@ export default function Header({ onSignOut, userProfile, onHistoryToggle, isHist
           <h1 className="brand-name">Turn up your world</h1>
         </div>
 
+      </div>
+
+      <div className="header-actions">
         <div
           ref={userIdentityRef}
           className={`header-user-identity header-user-identity--top${isUserCardOpen ? ' is-open' : ''}`}
@@ -61,32 +64,32 @@ export default function Header({ onSignOut, userProfile, onHistoryToggle, isHist
             <p className="header-user-email">{displayEmail}</p>
           </div>
         </div>
+
+        {onHistoryToggle ? (
+          <button
+            type="button"
+            onClick={onHistoryToggle}
+            className="history-button"
+            aria-expanded={isHistoryOpen}
+            aria-controls="history-drawer"
+          >
+            <History size={16} />
+            History
+            <span className="history-button__count">View</span>
+          </button>
+        ) : null}
+
+        {onSignOut ? (
+          <button
+            type="button"
+            onClick={onSignOut}
+            className="signout-button signout-button--header"
+          >
+            <LogOut size={16} />
+            Sign out
+          </button>
+        ) : null}
       </div>
-
-      {onHistoryToggle ? (
-        <button
-          type="button"
-          onClick={onHistoryToggle}
-          className="history-button"
-          aria-expanded={isHistoryOpen}
-          aria-controls="history-drawer"
-        >
-          <History size={16} />
-          History
-          <span className="history-button__count">View</span>
-        </button>
-      ) : null}
-
-      {onSignOut ? (
-        <button
-          type="button"
-          onClick={onSignOut}
-          className="signout-button signout-button--header"
-        >
-          <LogOut size={16} />
-          Sign out
-        </button>
-      ) : null}
     </motion.header>
   );
 }
