@@ -1,5 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-// eslint-disable-next-line no-unused-vars
+import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Play, Pause, SkipForward, SkipBack, Waves, Disc3, ChevronLeft, ChevronRight, Repeat } from 'lucide-react';
 import ReactPlayerModule from 'react-player';
@@ -15,31 +14,8 @@ export default function Player({ playlist }) {
   const [repeatOne, setRepeatOne] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [prevPlaylist, setPrevPlaylist] = useState(playlist);
-  const [prevIndex, setPrevIndex] = useState(currentIndex);
-
   const audioRef = useRef(null);
   const youtubeRef = useRef(null);
-  const silentAudioRef = useRef(null);
-  const SILENT_AUDIO_URI = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
-
-  if (playlist !== prevPlaylist) {
-    setPrevPlaylist(playlist);
-    setCurrentIndex(0);
-    setQueuePage(0);
-    setIsPlaying(false);
-    setRepeatOne(false);
-    setCurrentTime(0);
-    setDuration(0);
-  }
-
-  if (currentIndex !== prevIndex) {
-    setPrevIndex(currentIndex);
-    const currentPage = Math.floor(currentIndex / PAGE_SIZE);
-    setQueuePage(currentPage);
-    setCurrentTime(0);
-    setDuration(0);
-  }
 
   const currentTrack = playlist?.[currentIndex];
   const isYouTubeTrack = currentTrack?.source === 'youtube';
@@ -56,23 +32,25 @@ export default function Player({ playlist }) {
     return `${minutes}:${seconds}`;
   };
 
+  useEffect(() => {
+    setCurrentIndex(0);
+    setQueuePage(0);
+    setIsPlaying(false);
+    setRepeatOne(false);
+    setCurrentTime(0);
+    setDuration(0);
+  }, [playlist]);
+
+  useEffect(() => {
+    const currentPage = Math.floor(currentIndex / PAGE_SIZE);
+    setQueuePage(currentPage);
+  }, [currentIndex]);
+
   const totalPages = Math.max(1, Math.ceil(playlist.length / PAGE_SIZE));
   const visiblePage = Math.min(queuePage, totalPages - 1);
   const pageStart = visiblePage * PAGE_SIZE;
   const pageEnd = pageStart + PAGE_SIZE;
   const visibleTracks = playlist.slice(pageStart, pageEnd);
-
-  const handleNext = useCallback(() => {
-    setCurrentIndex((prev) => (prev < playlist.length - 1 ? prev + 1 : 0));
-  }, [playlist.length]);
-
-  const handlePrev = useCallback(() => {
-    setCurrentIndex((prev) => (prev > 0 ? prev - 1 : prev));
-  }, []);
-
-  const togglePlay = () => setIsPlaying(!isPlaying);
-  const handleQueueNextPage = () => setQueuePage((prev) => Math.min(prev + 1, totalPages - 1));
-  const handleQueuePrevPage = () => setQueuePage((prev) => Math.max(prev - 1, 0));
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -112,7 +90,7 @@ export default function Player({ playlist }) {
       audio.removeEventListener('timeupdate', handleTimeUpdate);
       audio.removeEventListener('ended', handleEnded);
     };
-  }, [currentIndex, playlist, repeatOne, isYouTubeTrack, handleNext]);
+  }, [currentIndex, playlist, repeatOne, isYouTubeTrack]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -129,35 +107,15 @@ export default function Player({ playlist }) {
   }, [isPlaying, currentIndex, playlist, isYouTubeTrack]);
 
   useEffect(() => {
-    const silentAudio = silentAudioRef.current;
-    if (!silentAudio || !isYouTubeTrack) {
-      return;
-    }
-
-    if (isPlaying) {
-      silentAudio.play().catch(() => {});
-    } else {
-      silentAudio.pause();
-    }
-  }, [isPlaying, isYouTubeTrack]);
+    setCurrentTime(0);
+    setDuration(0);
+  }, [currentIndex]);
 
   useEffect(() => {
-    let timerId = null;
-
     const handleVisibilityChange = () => {
-      if (isYouTubeTrack && isPlaying) {
-        if (silentAudioRef.current && silentAudioRef.current.paused) {
-          silentAudioRef.current.play().catch(() => {});
-        }
-
+      if (!document.hidden && isYouTubeTrack && isPlaying) {
         const internalPlayer = youtubeRef.current?.getInternalPlayer?.();
         internalPlayer?.playVideo?.();
-
-        if (document.hidden) {
-          timerId = setTimeout(() => {
-            youtubeRef.current?.getInternalPlayer?.()?.playVideo?.();
-          }, 200);
-        }
       }
     };
 
@@ -165,98 +123,52 @@ export default function Player({ playlist }) {
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      if (timerId) {
-        clearTimeout(timerId);
-      }
     };
   }, [isPlaying, isYouTubeTrack]);
 
   useEffect(() => {
-    if (!currentTrack || !('mediaSession' in navigator)) {
+    if (!isYouTubeTrack || !('mediaSession' in navigator)) {
       return undefined;
     }
 
     const mediaSession = navigator.mediaSession;
-
-    try {
-      mediaSession.metadata = new MediaMetadata({
-        title: currentTrack.title || 'Track',
-        artist: trackArtist,
-        album: currentTrack.album || (isYouTubeTrack ? 'YouTube Playlist' : 'Google Drive Playlist'),
-        artwork: currentTrack.thumbnail ? [{ src: currentTrack.thumbnail, sizes: '512x512', type: 'image/jpeg' }] : [],
-      });
-    } catch {
-      // Ignore if MediaMetadata unsupported
-    }
-
     const play = () => {
       setIsPlaying(true);
-      if (isYouTubeTrack) {
-        silentAudioRef.current?.play()?.catch(() => {});
-        youtubeRef.current?.getInternalPlayer?.()?.playVideo?.();
-      } else if (audioRef.current) {
-        audioRef.current.play()?.catch(() => {});
-      }
+      youtubeRef.current?.getInternalPlayer?.()?.playVideo?.();
     };
-
     const pause = () => {
       setIsPlaying(false);
-      if (isYouTubeTrack) {
-        silentAudioRef.current?.pause();
-        youtubeRef.current?.getInternalPlayer?.()?.pauseVideo?.();
-      } else if (audioRef.current) {
-        audioRef.current.pause();
-      }
+      youtubeRef.current?.getInternalPlayer?.()?.pauseVideo?.();
     };
-
     const next = () => handleNext();
     const previous = () => handlePrev();
-    const seekto = (details) => {
-      if (details.seekTime !== undefined && details.seekTime !== null) {
-        const time = details.seekTime;
-        setCurrentTime(time);
-        if (isYouTubeTrack && youtubeRef.current) {
-          youtubeRef.current.seekTo(time, 'seconds');
-        } else if (audioRef.current) {
-          audioRef.current.currentTime = time;
-        }
-      }
-    };
 
-    const actionHandlers = { play, pause, nexttrack: next, previoustrack: previous, seekto };
+    const actionHandlers = { play, pause, nexttrack: next, previoustrack: previous };
 
     Object.entries(actionHandlers).forEach(([action, handler]) => {
       try {
         mediaSession.setActionHandler(action, handler);
       } catch {
-        // Unsupported media session action handler
+        // Media Session support differs between mobile browsers.
       }
     });
 
     return () => {
-      ['play', 'pause', 'nexttrack', 'previoustrack', 'seekto'].forEach((action) => {
+      ['play', 'pause', 'nexttrack', 'previoustrack'].forEach((action) => {
         try {
           mediaSession.setActionHandler(action, null);
         } catch {
-          // Cleanup
+          // Some browsers reject unsupported action handlers during cleanup.
         }
       });
     };
-  }, [currentTrack, isYouTubeTrack, currentIndex, trackArtist, handleNext, handlePrev]);
+  }, [isYouTubeTrack, currentIndex]);
 
-  useEffect(() => {
-    if ('mediaSession' in navigator && navigator.mediaSession.setPositionState && duration > 0) {
-      try {
-        navigator.mediaSession.setPositionState({
-          duration: Math.max(duration, 0),
-          playbackRate: 1,
-          position: Math.min(Math.max(currentTime, 0), duration),
-        });
-      } catch {
-        // Ignore edge cases on bounds
-      }
-    }
-  }, [currentTime, duration]);
+  const handleNext = () => setCurrentIndex(prev => (prev < playlist.length - 1 ? prev + 1 : 0));
+  const handlePrev = () => setCurrentIndex(prev => (prev > 0 ? prev - 1 : prev));
+  const togglePlay = () => setIsPlaying(!isPlaying);
+  const handleQueueNextPage = () => setQueuePage(prev => Math.min(prev + 1, totalPages - 1));
+  const handleQueuePrevPage = () => setQueuePage(prev => Math.max(prev - 1, 0));
   const handleSeek = (event) => {
     const value = Number(event.target.value);
     setCurrentTime(value);
@@ -302,7 +214,7 @@ export default function Player({ playlist }) {
   }
 
   return (
-    <motion.div 
+    <motion.div
       className="glass-panel player-card"
       initial={{ opacity: 0, y: 30, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -349,15 +261,15 @@ export default function Player({ playlist }) {
           </div>
 
           <div className="visualizer waveform-visualizer">
-          {waveformBars.map((barHeight, index) => (
-            <motion.div
-              key={`${barHeight}-${index}`}
-              className="visualizer-bar waveform-bar"
-              style={{ height: `${barHeight}px` }}
-              animate={isPlaying ? { scaleY: [0.7, 1.05, 0.82, 1] } : { scaleY: 0.5 }}
-              transition={{ repeat: Infinity, duration: 1.25 + index * 0.05, ease: 'easeInOut' }}
-            />
-          ))}
+            {waveformBars.map((barHeight, index) => (
+              <motion.div
+                key={`${barHeight}-${index}`}
+                className="visualizer-bar waveform-bar"
+                style={{ height: `${barHeight}px` }}
+                animate={isPlaying ? { scaleY: [0.7, 1.05, 0.82, 1] } : { scaleY: 0.5 }}
+                transition={{ repeat: Infinity, duration: 1.25 + index * 0.05, ease: 'easeInOut' }}
+              />
+            ))}
           </div>
         </div>
 
@@ -390,15 +302,15 @@ export default function Player({ playlist }) {
 
         <div className="transport-shell">
           <div className="control-row">
-            <button 
-              className="icon-button" 
+            <button
+              className="icon-button"
               onClick={handlePrev}
               type="button"
             >
               <SkipBack size={22} strokeWidth={1.6} />
             </button>
 
-            <motion.button 
+            <motion.button
               className="play-button"
               onClick={togglePlay}
               whileTap={{ scale: 0.92 }}
@@ -409,8 +321,8 @@ export default function Player({ playlist }) {
               </div>
             </motion.button>
 
-            <button 
-              className="icon-button" 
+            <button
+              className="icon-button"
               onClick={handleNext}
               type="button"
             >
@@ -446,20 +358,20 @@ export default function Player({ playlist }) {
               const absoluteIndex = pageStart + index;
 
               return (
-              <button
-                key={track.id}
-                type="button"
-                onClick={() => {
-                  setCurrentIndex(absoluteIndex);
-                  setIsPlaying(true);
-                }}
-                className={`queue-button ${absoluteIndex === currentIndex ? 'is-active' : ''}`}
-              >
-                <span className="queue-track-title">{track.title}</span>
-                <span className="queue-number queue-track-index">
-                  {absoluteIndex === currentIndex ? 'Live' : `${absoluteIndex + 1}`.padStart(3, '0')}
-                </span>
-              </button>
+                <button
+                  key={track.id}
+                  type="button"
+                  onClick={() => {
+                    setCurrentIndex(absoluteIndex);
+                    setIsPlaying(true);
+                  }}
+                  className={`queue-button ${absoluteIndex === currentIndex ? 'is-active' : ''}`}
+                >
+                  <span className="queue-track-title">{track.title}</span>
+                  <span className="queue-number queue-track-index">
+                    {absoluteIndex === currentIndex ? 'Live' : `${absoluteIndex + 1}`.padStart(3, '0')}
+                  </span>
+                </button>
               );
             })}
           </div>
@@ -500,27 +412,17 @@ export default function Player({ playlist }) {
             onProgress={({ playedSeconds }) => setCurrentTime(playedSeconds || 0)}
             onPlay={() => {
               setIsPlaying(true);
-              if (silentAudioRef.current && silentAudioRef.current.paused) {
-                silentAudioRef.current.play().catch(() => {});
-              }
               if ('mediaSession' in navigator) {
                 navigator.mediaSession.playbackState = 'playing';
               }
             }}
             onPause={() => {
-              if (document.hidden && isPlaying && isYouTubeTrack) {
-                youtubeRef.current?.getInternalPlayer?.()?.playVideo?.();
-                return;
-              }
-
               if (!document.hidden) {
                 setIsPlaying(false);
-                if (silentAudioRef.current) {
-                  silentAudioRef.current.pause();
-                }
-                if ('mediaSession' in navigator) {
-                  navigator.mediaSession.playbackState = 'paused';
-                }
+              }
+
+              if (!document.hidden && 'mediaSession' in navigator) {
+                navigator.mediaSession.playbackState = 'paused';
               }
             }}
             onEnded={() => {
@@ -544,12 +446,6 @@ export default function Player({ playlist }) {
                 },
               },
             }}
-          />
-          <audio
-            ref={silentAudioRef}
-            src={SILENT_AUDIO_URI}
-            loop
-            preload="auto"
           />
         </div>
       ) : (
