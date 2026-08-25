@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Clock3, History } from 'lucide-react';
+import { Clock3, History, X } from 'lucide-react';
 
 const formatTimeLabel = (value) => {
   if (!value) {
@@ -27,22 +27,21 @@ export default function HistorySidebar({
   onToggle,
   isLoading = false,
   error = '',
-  userProfile,
 }) {
-  const displayName = userProfile?.name || 'Google listener';
-
   return (
     <motion.aside
+      id="history-drawer"
       className={`glass-panel history-sidebar ${isOpen ? 'history-sidebar--open' : 'history-sidebar--closed'}`}
       initial={{ opacity: 0, x: -20 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+      animate={{ opacity: isOpen ? 1 : 0, x: isOpen ? 0 : '100%' }}
+      transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+      aria-hidden={!isOpen}
     >
       <div className="history-sidebar__shell">
         <div className="history-sidebar__header">
           <div className="history-sidebar__title-wrap">
             <p className="eyebrow">History</p>
-            <h2 className="history-sidebar__title">Left rail activity</h2>
+            <h2 className="history-sidebar__title">Recent playlists</h2>
           </div>
 
           <button
@@ -50,10 +49,10 @@ export default function HistorySidebar({
             className="history-sidebar__toggle"
             onClick={onToggle}
             aria-expanded={isOpen}
-            aria-label={isOpen ? 'Collapse history sidebar' : 'Open history sidebar'}
-            title={isOpen ? 'Collapse history' : 'Open history'}
+            aria-label="Close history"
+            title="Close history"
           >
-            {isOpen ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
+            <X size={17} />
           </button>
         </div>
 

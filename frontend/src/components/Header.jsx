@@ -1,9 +1,9 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { LogOut } from 'lucide-react';
+import { History, LogOut } from 'lucide-react';
 import driveMusicLogo from '../assets/drive-music.jpeg';
 
-export default function Header({ onSignOut, userProfile }) {
+export default function Header({ onSignOut, userProfile, onHistoryToggle, isHistoryOpen }) {
   const displayName = userProfile?.name || 'Signed in';
   const displayEmail = userProfile?.email || 'Music room is active';
   const avatarInitial = (displayName.trim().charAt(0) || 'A').toUpperCase();
@@ -62,6 +62,20 @@ export default function Header({ onSignOut, userProfile }) {
           </div>
         </div>
       </div>
+
+      {onHistoryToggle ? (
+        <button
+          type="button"
+          onClick={onHistoryToggle}
+          className="history-button"
+          aria-expanded={isHistoryOpen}
+          aria-controls="history-drawer"
+        >
+          <History size={16} />
+          History
+          <span className="history-button__count">View</span>
+        </button>
+      ) : null}
 
       {onSignOut ? (
         <button

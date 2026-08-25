@@ -18,7 +18,7 @@ export default function Home({ onSignOut, userProfile }) {
   const [historyItems, setHistoryItems] = useState([]);
   const [historyError, setHistoryError] = useState('');
   const [historyLoading, setHistoryLoading] = useState(false);
-  const [isHistoryOpen, setIsHistoryOpen] = useState(true);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [supportsHistory, setSupportsHistory] = useState(null);
   const authToken = userProfile?.credential;
   const sourceLabel = source === 'youtube' ? 'YouTube' : 'Drive';
@@ -146,18 +146,37 @@ export default function Home({ onSignOut, userProfile }) {
       transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
       className="music-shell"
     >
-      <Header onSignOut={onSignOut} userProfile={userProfile} />
+      <Header
+        onSignOut={onSignOut}
+        userProfile={userProfile}
+        onHistoryToggle={() => setIsHistoryOpen((previousValue) => !previousValue)}
+        isHistoryOpen={isHistoryOpen}
+      />
 
-      <div className={`music-grid music-grid--home ${isHistoryOpen ? 'is-sidebar-open' : 'is-sidebar-collapsed'}`}>
-        <HistorySidebar
-          historyItems={historyItems}
-          isOpen={isHistoryOpen}
-          onToggle={() => setIsHistoryOpen((previousValue) => !previousValue)}
-          isLoading={historyLoading}
-          error={historyError}
-          userProfile={userProfile}
-        />
+      <AnimatePresence>
+        {isHistoryOpen ? (
+          <motion.button
+            type="button"
+            className="history-backdrop"
+            aria-label="Close history"
+            onClick={() => setIsHistoryOpen(false)}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          />
+        ) : null}
+      </AnimatePresence>
 
+      <HistorySidebar
+        historyItems={historyItems}
+        isOpen={isHistoryOpen}
+        onToggle={() => setIsHistoryOpen(false)}
+        isLoading={historyLoading}
+        error={historyError}
+        userProfile={userProfile}
+      />
+
+      <div className="music-grid music-grid--home">
         <section className="music-stack music-stack--main">
           <motion.div
             className="glass-panel hero-card"
@@ -175,12 +194,12 @@ export default function Home({ onSignOut, userProfile }) {
 
             <div className="hero-grid">
               <div>
-                <p className="eyebrow">Cinematic music hub</p>
+                <p className="eyebrow">Your listening room</p>
                 <h1 className="hero-title">
-                  Your library, dressed like a late-night studio.
+                  Bring your playlists into focus.
                 </h1>
                 <p className="body-copy hero-copy">
-                  Connect a Drive folder or YouTube playlist, unlock your set, and keep the whole surface moody, minimal, and built around the track.
+                  Choose a source, paste a playlist link, and start listening. Your recent playlists stay available in History.
                 </p>
               </div>
 
