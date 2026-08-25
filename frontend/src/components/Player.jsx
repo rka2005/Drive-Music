@@ -114,7 +114,8 @@ export default function Player({ playlist }) {
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden && isYouTubeTrack && isPlaying) {
-        youtubeRef.current?.getInternalPlayer?.()?.playVideo?.();
+        const internalPlayer = youtubeRef.current?.getInternalPlayer?.();
+        internalPlayer?.playVideo?.();
       }
     };
 
@@ -124,6 +125,44 @@ export default function Player({ playlist }) {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [isPlaying, isYouTubeTrack]);
+
+  useEffect(() => {
+    if (!isYouTubeTrack || !('mediaSession' in navigator)) {
+      return undefined;
+    }
+
+    const mediaSession = navigator.mediaSession;
+    const play = () => {
+      setIsPlaying(true);
+      youtubeRef.current?.getInternalPlayer?.()?.playVideo?.();
+    };
+    const pause = () => {
+      setIsPlaying(false);
+      youtubeRef.current?.getInternalPlayer?.()?.pauseVideo?.();
+    };
+    const next = () => handleNext();
+    const previous = () => handlePrev();
+
+    const actionHandlers = { play, pause, nexttrack: next, previoustrack: previous };
+
+    Object.entries(actionHandlers).forEach(([action, handler]) => {
+      try {
+        mediaSession.setActionHandler(action, handler);
+      } catch {
+        // Media Session support differs between mobile browsers.
+      }
+    });
+
+    return () => {
+      ['play', 'pause', 'nexttrack', 'previoustrack'].forEach((action) => {
+        try {
+          mediaSession.setActionHandler(action, null);
+        } catch {
+          // Some browsers reject unsupported action handlers during cleanup.
+        }
+      });
+    };
+  }, [isYouTubeTrack, currentIndex]);
 
   const handleNext = () => setCurrentIndex(prev => (prev < playlist.length - 1 ? prev + 1 : 0));
   const handlePrev = () => setCurrentIndex(prev => (prev > 0 ? prev - 1 : prev));
@@ -371,6 +410,21 @@ export default function Player({ playlist }) {
             height="1px"
             onDuration={(value) => setDuration(value || 0)}
             onProgress={({ playedSeconds }) => setCurrentTime(playedSeconds || 0)}
+            onPlay={() => {
+              setIsPlaying(true);
+              if ('mediaSession' in navigator) {
+                navigator.mediaSession.playbackState = 'playing';
+              }
+            }}
+            onPause={() => {
+              if (!document.hidden) {
+                setIsPlaying(false);
+              }
+
+              if (!document.hidden && 'mediaSession' in navigator) {
+                navigator.mediaSession.playbackState = 'paused';
+              }
+            }}
             onEnded={() => {
               if (repeatOne) {
                 youtubeRef.current?.seekTo(0, 'seconds');
@@ -383,8 +437,10 @@ export default function Player({ playlist }) {
             config={{
               youtube: {
                 playerVars: {
-                  autoplay: 0,
+                  autoplay: 1,
+                  enablejsapi: 1,
                   modestbranding: 1,
+                  origin: window.location.origin,
                   rel: 0,
                   playsinline: 1,
                 },
