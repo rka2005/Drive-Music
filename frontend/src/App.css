@@ -3018,14 +3018,14 @@
 
 .youtube-audio-host {
   position: fixed;
-  right: 1px;
-  bottom: 1px;
-  width: 2px;
-  height: 2px;
+  width: 1px;
+  height: 1px;
+  left: 0;
+  bottom: 0;
   overflow: hidden;
-  opacity: 0.01;
+  opacity: 0;
   pointer-events: none;
-  z-index: -1;
+  z-index: 1;
 }
 
 .status-card {

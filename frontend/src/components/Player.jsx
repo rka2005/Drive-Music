@@ -10,7 +10,7 @@ const PAGE_SIZE = 15;
 export default function Player({ playlist }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [queuePage, setQueuePage] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [repeatOne, setRepeatOne] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -35,7 +35,7 @@ export default function Player({ playlist }) {
   useEffect(() => {
     setCurrentIndex(0);
     setQueuePage(0);
-    setIsPlaying(true);
+    setIsPlaying(false);
     setRepeatOne(false);
     setCurrentTime(0);
     setDuration(0);
@@ -367,8 +367,8 @@ export default function Player({ playlist }) {
             ref={youtubeRef}
             url={currentTrack.url}
             playing={isPlaying}
-            width="0px"
-            height="0px"
+            width="1px"
+            height="1px"
             onDuration={(value) => setDuration(value || 0)}
             onProgress={({ playedSeconds }) => setCurrentTime(playedSeconds || 0)}
             onEnded={() => {
@@ -383,7 +383,7 @@ export default function Player({ playlist }) {
             config={{
               youtube: {
                 playerVars: {
-                  autoplay: 1,
+                  autoplay: 0,
                   modestbranding: 1,
                   rel: 0,
                   playsinline: 1,
