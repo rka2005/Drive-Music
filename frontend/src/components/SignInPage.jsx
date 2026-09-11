@@ -7,6 +7,8 @@ import {
   Music4,
   Sparkles,
   Waves,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import Loader from './Loader';
 import driveMusicLogo from '../assets/drive-music.jpeg';
@@ -23,7 +25,7 @@ const steps = [
   'Press play and keep your playlist moving with the built-in controls.',
 ];
 
-export default function SignInPage({ onSignIn }) {
+export default function SignInPage({ onSignIn, theme = 'dark', onToggleTheme }) {
   const [googleError, setGoogleError] = useState('');
   const [googleReady, setGoogleReady] = useState(false);
   const googleButtonRef = useRef(null);
@@ -259,9 +261,23 @@ export default function SignInPage({ onSignIn }) {
               </div>
             </div>
 
-            <div className="mini-status">
-              <Sparkles size={14} />
-              Ready
+            <div className="signin-top-actions">
+              {onToggleTheme ? (
+                <button
+                  type="button"
+                  onClick={onToggleTheme}
+                  className="theme-toggle-button"
+                  aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+                  title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+                >
+                  {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+                  <span className="theme-toggle-text">{theme === 'dark' ? 'Light' : 'Dark'}</span>
+                </button>
+              ) : null}
+              <div className="mini-status">
+                <Sparkles size={14} />
+                Ready
+              </div>
             </div>
           </div>
 

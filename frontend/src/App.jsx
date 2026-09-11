@@ -85,6 +85,27 @@ export default function App() {
     });
   }, [backendSupportsAuth]);
 
+  const [theme, setTheme] = React.useState(() => {
+    try {
+      return window.localStorage.getItem('drive-music-theme') || 'dark';
+    } catch {
+      return 'dark';
+    }
+  });
+
+  React.useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    try {
+      window.localStorage.setItem('drive-music-theme', theme);
+    } catch {
+      // Ignore storage errors
+    }
+  }, [theme]);
+
+  const toggleTheme = React.useCallback(() => {
+    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  }, []);
+
   const handleSignIn = (profile) => {
     const nextAuthState = {
       isSignedIn: true,
@@ -105,7 +126,7 @@ export default function App() {
   };
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell theme-${theme}`}>
       {isPageLoading ? (
         <div className="app-loading-overlay" aria-hidden="true">
           <Loader
@@ -115,9 +136,18 @@ export default function App() {
         </div>
       ) : null}
       {isSignedIn ? (
-        <Home onSignOut={handleSignOut} userProfile={userProfile} />
+        <Home
+          onSignOut={handleSignOut}
+          userProfile={userProfile}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+        />
       ) : (
-        <SignInPage onSignIn={handleSignIn} />
+        <SignInPage
+          onSignIn={handleSignIn}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+        />
       )}
       <Footer />
     </div>

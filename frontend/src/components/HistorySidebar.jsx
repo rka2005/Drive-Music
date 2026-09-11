@@ -27,6 +27,7 @@ export default function HistorySidebar({
   onToggle,
   isLoading = false,
   error = '',
+  onSelectHistory,
 }) {
   return (
     <motion.aside
@@ -77,16 +78,22 @@ export default function HistorySidebar({
           ) : historyItems.length > 0 ? (
             <div className="history-sidebar__list">
               {historyItems.map((item) => (
-                <article key={item.id} className="history-item">
+                <button
+                  key={item.id}
+                  type="button"
+                  className="history-item history-item--interactive"
+                  onClick={() => onSelectHistory?.({ source: item.source, link: item.inputValue })}
+                  title={`Load set: ${item.playlistTitle || item.inputValue}`}
+                >
                   <div className="history-item__meta">
                     <p className="history-item__source">{item.sourceLabel || (item.source === 'youtube' ? 'YouTube' : 'Drive')}</p>
                     <p className="history-item__time">{formatTimeLabel(item.createdAt || item.recordedAt)}</p>
                   </div>
                   <h3 className="history-item__title">{item.playlistTitle || item.inputValue}</h3>
                   <p className="history-item__details">
-                    {Number.isFinite(item.trackCount) ? `${item.trackCount} tracks` : 'Saved session'}
+                    {Number.isFinite(item.trackCount) ? `${item.trackCount} tracks · Click to load & play` : 'Saved session · Click to play'}
                   </p>
-                </article>
+                </button>
               ))}
             </div>
           ) : (

@@ -1,21 +1,50 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Play, Pause, SkipForward, SkipBack, Waves, Disc3, ChevronLeft, ChevronRight, Repeat } from 'lucide-react';
+import {
+  Play,
+  Pause,
+  SkipForward,
+  SkipBack,
+  Waves,
+  Disc3,
+  ChevronLeft,
+  ChevronRight,
+  Repeat,
+  Radio,
+  AlertCircle,
+  Shuffle,
+  Volume2,
+  VolumeX,
+  Volume1,
+  Search,
+  Gauge,
+  X,
+} from 'lucide-react';
 import ReactPlayerModule from 'react-player';
 
 const ReactPlayer = ReactPlayerModule?.default || ReactPlayerModule;
 
 const PAGE_SIZE = 15;
+const PLAYBACK_SPEEDS = [1.0, 1.25, 1.5, 0.8];
 
 export default function Player({ playlist }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [queuePage, setQueuePage] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [autoPlay, setAutoPlay] = useState(true);
+  const [isShuffle, setIsShuffle] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
+  const [volume, setVolume] = useState(0.9);
+  const [isMuted, setIsMuted] = useState(false);
+  const [showVolumeSlider, setShowVolumeSlider] = useState(false);
+  const [queueSearch, setQueueSearch] = useState('');
+  const [isPlaying, setIsPlaying] = useState(() => Boolean(playlist && playlist.length > 0));
   const [repeatOne, setRepeatOne] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [isAutoplayBlocked, setIsAutoplayBlocked] = useState(false);
   const audioRef = useRef(null);
   const youtubeRef = useRef(null);
+  const isTransitioningRef = useRef(false);
 
   const currentTrack = playlist?.[currentIndex];
   const isYouTubeTrack = currentTrack?.source === 'youtube';
@@ -35,7 +64,9 @@ export default function Player({ playlist }) {
   useEffect(() => {
     setCurrentIndex(0);
     setQueuePage(0);
-    setIsPlaying(false);
+    const hasTracks = Boolean(playlist && playlist.length > 0);
+    setIsPlaying(hasTracks);
+    setIsAutoplayBlocked(false);
     setRepeatOne(false);
     setCurrentTime(0);
     setDuration(0);
@@ -46,11 +77,64 @@ export default function Player({ playlist }) {
     setQueuePage(currentPage);
   }, [currentIndex]);
 
-  const totalPages = Math.max(1, Math.ceil(playlist.length / PAGE_SIZE));
+  const filteredPlaylist = useMemo(() => {
+    if (!queueSearch.trim()) {
+      return playlist.map((track, originalIndex) => ({ ...track, originalIndex }));
+    }
+    const query = queueSearch.toLowerCase();
+    return playlist
+      .map((track, originalIndex) => ({ ...track, originalIndex }))
+      .filter((track) => track.title.toLowerCase().includes(query));
+  }, [playlist, queueSearch]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredPlaylist.length / PAGE_SIZE));
   const visiblePage = Math.min(queuePage, totalPages - 1);
   const pageStart = visiblePage * PAGE_SIZE;
   const pageEnd = pageStart + PAGE_SIZE;
-  const visibleTracks = playlist.slice(pageStart, pageEnd);
+  const visibleTracks = filteredPlaylist.slice(pageStart, pageEnd);
+
+  const getNextIndex = (prevIndex) => {
+    if (playlist.length <= 1) return 0;
+    if (isShuffle) {
+      let randomIndex;
+      do {
+        randomIndex = Math.floor(Math.random() * playlist.length);
+      } while (randomIndex === prevIndex && playlist.length > 1);
+      return randomIndex;
+    }
+    return prevIndex < playlist.length - 1 ? prevIndex + 1 : 0;
+  };
+
+  const handleNext = (startPlaying = true) => {
+    isTransitioningRef.current = true;
+    if (startPlaying) {
+      setIsPlaying(true);
+      setIsAutoplayBlocked(false);
+    }
+    setCurrentIndex((prev) => getNextIndex(prev));
+  };
+
+  const handlePrev = (startPlaying = true) => {
+    isTransitioningRef.current = true;
+    if (startPlaying) {
+      setIsPlaying(true);
+      setIsAutoplayBlocked(false);
+    }
+    setCurrentIndex((prev) => (prev > 0 ? prev - 1 : prev));
+  };
+
+  const cyclePlaybackSpeed = () => {
+    const nextIdx = (PLAYBACK_SPEEDS.indexOf(playbackSpeed) + 1) % PLAYBACK_SPEEDS.length;
+    setPlaybackSpeed(PLAYBACK_SPEEDS[nextIdx]);
+  };
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (audio) {
+      audio.volume = isMuted ? 0 : volume;
+      audio.playbackRate = playbackSpeed;
+    }
+  }, [volume, isMuted, playbackSpeed, currentIndex]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -69,16 +153,60 @@ export default function Player({ playlist }) {
       setCurrentTime(audio.currentTime || 0);
     };
 
+    const handlePlay = () => {
+      setIsPlaying(true);
+      setIsAutoplayBlocked(false);
+      isTransitioningRef.current = false;
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.playbackState = 'playing';
+      }
+    };
+
+    const handlePause = () => {
+      if (isTransitioningRef.current || audio.ended) {
+        return;
+      }
+      if (audio.duration && audio.currentTime >= audio.duration - 0.5) {
+        return;
+      }
+      setIsPlaying(false);
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.playbackState = 'paused';
+      }
+    };
+
+    const handleCanPlay = () => {
+      if (isPlaying && audio.paused) {
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise.catch((err) => {
+            if (err.name !== 'AbortError' && err.name !== 'NotAllowedError') {
+              console.warn('Playback on canplay failed:', err);
+            }
+          });
+        }
+      }
+    };
+
     const handleEnded = () => {
       if (repeatOne) {
+        audio.currentTime = 0;
+        audio.play().catch(() => {});
         return;
       }
 
-      handleNext();
+      if (autoPlay) {
+        handleNext(true);
+      } else {
+        setIsPlaying(false);
+      }
     };
 
     audio.addEventListener('loadedmetadata', handleLoadedMetadata);
     audio.addEventListener('timeupdate', handleTimeUpdate);
+    audio.addEventListener('play', handlePlay);
+    audio.addEventListener('pause', handlePause);
+    audio.addEventListener('canplay', handleCanPlay);
     audio.addEventListener('ended', handleEnded);
 
     if (repeatOne) {
@@ -88,9 +216,12 @@ export default function Player({ playlist }) {
     return () => {
       audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
       audio.removeEventListener('timeupdate', handleTimeUpdate);
+      audio.removeEventListener('play', handlePlay);
+      audio.removeEventListener('pause', handlePause);
+      audio.removeEventListener('canplay', handleCanPlay);
       audio.removeEventListener('ended', handleEnded);
     };
-  }, [currentIndex, playlist, repeatOne, isYouTubeTrack]);
+  }, [currentIndex, playlist, repeatOne, isYouTubeTrack, autoPlay, isPlaying, isShuffle]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -100,7 +231,21 @@ export default function Player({ playlist }) {
     }
 
     if (isPlaying) {
-      audio.play().catch(() => setIsPlaying(false));
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((error) => {
+          if (error.name === 'AbortError') {
+            return;
+          }
+          if (error.name === 'NotAllowedError') {
+            console.warn('Autoplay blocked by browser policy:', error);
+            setIsAutoplayBlocked(true);
+            setIsPlaying(false);
+          } else {
+            console.warn('Audio play request failed:', error);
+          }
+        });
+      }
     } else {
       audio.pause();
     }
@@ -127,21 +272,43 @@ export default function Player({ playlist }) {
   }, [isPlaying, isYouTubeTrack]);
 
   useEffect(() => {
-    if (!isYouTubeTrack || !('mediaSession' in navigator)) {
+    if (!('mediaSession' in navigator) || !currentTrack) {
       return undefined;
     }
 
     const mediaSession = navigator.mediaSession;
+
+    try {
+      mediaSession.metadata = new window.MediaMetadata({
+        title: currentTrack.title || 'Untitled Track',
+        artist: trackArtist,
+        album: 'Drive Music',
+      });
+    } catch {
+      // MediaMetadata not supported
+    }
+
     const play = () => {
       setIsPlaying(true);
-      youtubeRef.current?.getInternalPlayer?.()?.playVideo?.();
+      setIsAutoplayBlocked(false);
+      if (isYouTubeTrack) {
+        youtubeRef.current?.getInternalPlayer?.()?.playVideo?.();
+      } else if (audioRef.current) {
+        audioRef.current.play().catch(() => {});
+      }
     };
+
     const pause = () => {
       setIsPlaying(false);
-      youtubeRef.current?.getInternalPlayer?.()?.pauseVideo?.();
+      if (isYouTubeTrack) {
+        youtubeRef.current?.getInternalPlayer?.()?.pauseVideo?.();
+      } else if (audioRef.current) {
+        audioRef.current.pause();
+      }
     };
-    const next = () => handleNext();
-    const previous = () => handlePrev();
+
+    const next = () => handleNext(true);
+    const previous = () => handlePrev(true);
 
     const actionHandlers = { play, pause, nexttrack: next, previoustrack: previous };
 
@@ -162,11 +329,12 @@ export default function Player({ playlist }) {
         }
       });
     };
-  }, [isYouTubeTrack, currentIndex]);
+  }, [isYouTubeTrack, currentIndex, currentTrack, trackArtist, isShuffle]);
 
-  const handleNext = () => setCurrentIndex(prev => (prev < playlist.length - 1 ? prev + 1 : 0));
-  const handlePrev = () => setCurrentIndex(prev => (prev > 0 ? prev - 1 : prev));
-  const togglePlay = () => setIsPlaying(!isPlaying);
+  const togglePlay = () => {
+    setIsAutoplayBlocked(false);
+    setIsPlaying(!isPlaying);
+  };
   const handleQueueNextPage = () => setQueuePage(prev => Math.min(prev + 1, totalPages - 1));
   const handleQueuePrevPage = () => setQueuePage(prev => Math.max(prev - 1, 0));
   const handleSeek = (event) => {
@@ -187,6 +355,18 @@ export default function Player({ playlist }) {
     setRepeatOne((prev) => !prev);
   };
 
+  const toggleAutoPlay = () => {
+    setAutoPlay((prev) => !prev);
+  };
+
+  const toggleShuffle = () => {
+    setIsShuffle((prev) => !prev);
+  };
+
+  const toggleMute = () => {
+    setIsMuted((prev) => !prev);
+  };
+
   if (!currentTrack) {
     return (
       <motion.div
@@ -202,7 +382,7 @@ export default function Player({ playlist }) {
           </div>
           <h2 className="empty-stage-title">No set loaded yet</h2>
           <p className="body-copy" style={{ maxWidth: '36ch' }}>
-            Paste a Drive link to unlock the player. Once the playlist loads, the controls and track progress come alive here.
+            Paste a Drive or YouTube link to unlock the player. The set auto-starts and keeps moving from song to song automatically.
           </p>
           <div className="pill">
             <Waves size={14} />
@@ -212,6 +392,8 @@ export default function Player({ playlist }) {
       </motion.div>
     );
   }
+
+  const effectiveVolume = isMuted ? 0 : volume;
 
   return (
     <motion.div
@@ -226,7 +408,7 @@ export default function Player({ playlist }) {
 
       <div className="player-empty">
         <div className="player-hero">
-          <div className="track-art" aria-hidden="true">
+          <div className={`track-art ${isPlaying ? 'is-spinning' : ''}`} aria-hidden="true">
             <div className="track-art__glow" />
             <Disc3 size={52} />
           </div>
@@ -249,14 +431,54 @@ export default function Player({ playlist }) {
               <span className={`pill pill--cyan ${isPlaying ? 'is-live' : ''}`}>
                 {isPlaying ? 'Now streaming' : 'Paused'}
               </span>
-              <span className="pill">{repeatOne ? 'Repeat one' : 'Repeat off'}</span>
+              <button
+                type="button"
+                className={`pill ${autoPlay ? 'pill--cyan' : ''}`}
+                onClick={toggleAutoPlay}
+                style={{ cursor: 'pointer' }}
+                title="Click to toggle continuous autoplay"
+              >
+                {autoPlay ? 'Autoplay on' : 'Autoplay off'}
+              </button>
+              <button
+                type="button"
+                className={`pill ${isShuffle ? 'pill--gold' : ''}`}
+                onClick={toggleShuffle}
+                style={{ cursor: 'pointer' }}
+                title="Click to toggle shuffle mode"
+              >
+                {isShuffle ? 'Shuffle on' : 'Shuffle off'}
+              </button>
+              <button
+                type="button"
+                className="pill pill--speed"
+                onClick={cyclePlaybackSpeed}
+                title="Click to change playback speed"
+                style={{ cursor: 'pointer' }}
+              >
+                <Gauge size={12} />
+                {playbackSpeed}x Speed
+              </button>
             </div>
           </div>
         </div>
 
+        {isAutoplayBlocked ? (
+          <motion.button
+            type="button"
+            className="autoplay-blocked-banner"
+            onClick={togglePlay}
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <AlertCircle size={16} />
+            <span>Browser paused initial sound. Click here or tap Play to start listening.</span>
+          </motion.button>
+        ) : null}
+
         <div className="waveform-shell" aria-label="Track waveform">
           <div className="waveform-label-row">
-            <span className="subtle-label">Waveform</span>
+            <span className="subtle-label">Equalizer stream</span>
             <span className="waveform-state">{isPlaying ? 'live' : 'paused'}</span>
           </div>
 
@@ -266,24 +488,14 @@ export default function Player({ playlist }) {
                 key={`${barHeight}-${index}`}
                 className="visualizer-bar waveform-bar"
                 style={{ height: `${barHeight}px` }}
-                animate={isPlaying ? { scaleY: [0.7, 1.05, 0.82, 1] } : { scaleY: 0.5 }}
-                transition={{ repeat: Infinity, duration: 1.25 + index * 0.05, ease: 'easeInOut' }}
+                animate={isPlaying ? { scaleY: [0.65, 1.1, 0.78, 1] } : { scaleY: 0.35 }}
+                transition={{ repeat: Infinity, duration: 1.1 + index * 0.04, ease: 'easeInOut' }}
               />
             ))}
           </div>
         </div>
 
         <div className="now-card">
-          <div className="track-row">
-            <div className="icon-badge">
-              <Disc3 size={18} />
-            </div>
-            <div>
-              <p className="subtle-label">Listening room</p>
-              <p className="section-copy">A soft gold tone with warm contrast and a clean playback surface.</p>
-            </div>
-          </div>
-
           <div className="seek-shell">
             <input
               type="range"
@@ -303,9 +515,22 @@ export default function Player({ playlist }) {
         <div className="transport-shell">
           <div className="control-row">
             <button
-              className="icon-button"
-              onClick={handlePrev}
               type="button"
+              className={`icon-button shuffle-button${isShuffle ? ' is-active' : ''}`}
+              onClick={toggleShuffle}
+              aria-pressed={isShuffle}
+              aria-label="Toggle shuffle mode"
+              title={isShuffle ? 'Shuffle on' : 'Shuffle off'}
+            >
+              <Shuffle size={19} strokeWidth={1.8} />
+            </button>
+
+            <button
+              className="icon-button"
+              onClick={() => handlePrev(true)}
+              type="button"
+              title="Previous song"
+              aria-label="Previous song"
             >
               <SkipBack size={22} strokeWidth={1.6} />
             </button>
@@ -315,16 +540,20 @@ export default function Player({ playlist }) {
               onClick={togglePlay}
               whileTap={{ scale: 0.92 }}
               type="button"
+              title={isPlaying ? 'Pause' : 'Play'}
+              aria-label={isPlaying ? 'Pause' : 'Play'}
             >
               <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-                {isPlaying ? <Pause size={24} color="#09090d" fill="#09090d" /> : <Play size={24} color="#09090d" fill="#09090d" className="ml-1" />}
+                {isPlaying ? <Pause size={26} color="#09090d" fill="#09090d" /> : <Play size={26} color="#09090d" fill="#09090d" className="ml-1" />}
               </div>
             </motion.button>
 
             <button
               className="icon-button"
-              onClick={handleNext}
+              onClick={() => handleNext(true)}
               type="button"
+              title="Next song"
+              aria-label="Next song"
             >
               <SkipForward size={22} strokeWidth={1.6} />
             </button>
@@ -337,8 +566,62 @@ export default function Player({ playlist }) {
               aria-label={repeatOne ? 'Disable repeat one' : 'Enable repeat one'}
               title={repeatOne ? 'Repeat one on' : 'Repeat one off'}
             >
-              <Repeat size={20} strokeWidth={1.8} />
+              <Repeat size={19} strokeWidth={1.8} />
               <span className="repeat-one-badge">1</span>
+            </button>
+          </div>
+
+          <div className="secondary-controls-row">
+            <div
+              className="volume-widget-wrap"
+              onMouseEnter={() => setShowVolumeSlider(true)}
+              onMouseLeave={() => setShowVolumeSlider(false)}
+            >
+              <button
+                type="button"
+                className="volume-icon-button"
+                onClick={toggleMute}
+                title={isMuted ? 'Unmute' : 'Mute'}
+                aria-label={isMuted ? 'Unmute' : 'Mute'}
+              >
+                {isMuted || effectiveVolume === 0 ? (
+                  <VolumeX size={18} />
+                ) : effectiveVolume < 0.5 ? (
+                  <Volume1 size={18} />
+                ) : (
+                  <Volume2 size={18} />
+                )}
+              </button>
+
+              <div className={`volume-slider-shell ${showVolumeSlider ? 'is-visible' : ''}`}>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.02"
+                  value={effectiveVolume}
+                  onChange={(e) => {
+                    const nextVol = Number(e.target.value);
+                    setVolume(nextVol);
+                    if (isMuted && nextVol > 0) {
+                      setIsMuted(false);
+                    }
+                  }}
+                  className="volume-range"
+                  aria-label="Volume control"
+                />
+                <span className="volume-label-text">{Math.round(effectiveVolume * 100)}%</span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className={`autoplay-pill-button${autoPlay ? ' is-active' : ''}`}
+              onClick={toggleAutoPlay}
+              title="Continuous autoplay"
+            >
+              <Radio size={14} />
+              <span>Autoplay</span>
             </button>
           </div>
         </div>
@@ -346,34 +629,66 @@ export default function Player({ playlist }) {
         <div className="queue-card">
           <div className="queue-header">
             <div>
-              <p className="eyebrow">Queue</p>
+              <p className="eyebrow">Queue & Tracklist</p>
               <p className="queue-subtitle">
-                {playlist.length} songs total · page {visiblePage + 1} of {totalPages}
+                {filteredPlaylist.length} songs · page {visiblePage + 1} of {totalPages}
               </p>
+            </div>
+
+            <div className="queue-search-shell">
+              <Search size={14} className="queue-search-icon" />
+              <input
+                type="text"
+                className="queue-search-input"
+                placeholder="Search queue..."
+                value={queueSearch}
+                onChange={(e) => {
+                  setQueueSearch(e.target.value);
+                  setQueuePage(0);
+                }}
+              />
+              {queueSearch ? (
+                <button
+                  type="button"
+                  className="queue-search-clear"
+                  onClick={() => setQueueSearch('')}
+                >
+                  <X size={13} />
+                </button>
+              ) : null}
             </div>
           </div>
 
           <div className="queue-list">
-            {visibleTracks.map((track, index) => {
-              const absoluteIndex = pageStart + index;
+            {visibleTracks.length > 0 ? (
+              visibleTracks.map((track) => {
+                const absoluteIndex = track.originalIndex;
+                const isCurrent = absoluteIndex === currentIndex;
 
-              return (
-                <button
-                  key={track.id}
-                  type="button"
-                  onClick={() => {
-                    setCurrentIndex(absoluteIndex);
-                    setIsPlaying(true);
-                  }}
-                  className={`queue-button ${absoluteIndex === currentIndex ? 'is-active' : ''}`}
-                >
-                  <span className="queue-track-title">{track.title}</span>
-                  <span className="queue-number queue-track-index">
-                    {absoluteIndex === currentIndex ? 'Live' : `${absoluteIndex + 1}`.padStart(3, '0')}
-                  </span>
-                </button>
-              );
-            })}
+                return (
+                  <button
+                    key={track.id}
+                    type="button"
+                    onClick={() => {
+                      isTransitioningRef.current = true;
+                      setCurrentIndex(absoluteIndex);
+                      setIsPlaying(true);
+                      setIsAutoplayBlocked(false);
+                    }}
+                    className={`queue-button ${isCurrent ? 'is-active' : ''}`}
+                  >
+                    <span className="queue-track-title">{track.title}</span>
+                    <span className="queue-number queue-track-index">
+                      {isCurrent ? 'Live' : `${absoluteIndex + 1}`.padStart(3, '0')}
+                    </span>
+                  </button>
+                );
+              })
+            ) : (
+              <div className="queue-empty-search">
+                <p>No tracks match "{queueSearch}"</p>
+              </div>
+            )}
           </div>
 
           <div className="queue-page-controls queue-page-controls--bottom">
@@ -406,34 +721,47 @@ export default function Player({ playlist }) {
             ref={youtubeRef}
             url={currentTrack.url}
             playing={isPlaying}
+            volume={effectiveVolume}
+            muted={isMuted}
+            playbackRate={playbackSpeed}
             width="1px"
             height="1px"
             onDuration={(value) => setDuration(value || 0)}
             onProgress={({ playedSeconds }) => setCurrentTime(playedSeconds || 0)}
             onPlay={() => {
               setIsPlaying(true);
+              setIsAutoplayBlocked(false);
+              isTransitioningRef.current = false;
               if ('mediaSession' in navigator) {
                 navigator.mediaSession.playbackState = 'playing';
               }
             }}
             onPause={() => {
-              if (!document.hidden) {
-                setIsPlaying(false);
-              }
-
-              if (!document.hidden && 'mediaSession' in navigator) {
+              if ('mediaSession' in navigator && !isPlaying) {
                 navigator.mediaSession.playbackState = 'paused';
               }
             }}
             onEnded={() => {
               if (repeatOne) {
                 youtubeRef.current?.seekTo(0, 'seconds');
+                youtubeRef.current?.getInternalPlayer?.()?.playVideo?.();
                 return;
               }
 
-              handleNext();
+              if (autoPlay) {
+                handleNext(true);
+              } else {
+                setIsPlaying(false);
+              }
             }}
-            onError={() => setIsPlaying(false)}
+            onReady={() => {
+              if (isPlaying) {
+                youtubeRef.current?.getInternalPlayer?.()?.playVideo?.();
+              }
+            }}
+            onError={(err) => {
+              console.warn('YouTube playback error:', err);
+            }}
             config={{
               youtube: {
                 playerVars: {
@@ -449,7 +777,12 @@ export default function Player({ playlist }) {
           />
         </div>
       ) : (
-        <audio ref={audioRef} src={currentTrack.url} preload="metadata" />
+        <audio
+          ref={audioRef}
+          src={currentTrack.url}
+          autoPlay={isPlaying}
+          preload="auto"
+        />
       )}
     </motion.div>
   );

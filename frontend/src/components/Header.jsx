@@ -1,9 +1,16 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { History, LogOut } from 'lucide-react';
+import { History, LogOut, Moon, Sun } from 'lucide-react';
 import driveMusicLogo from '../assets/drive-music.jpeg';
 
-export default function Header({ onSignOut, userProfile, onHistoryToggle, isHistoryOpen }) {
+export default function Header({
+  onSignOut,
+  userProfile,
+  onHistoryToggle,
+  isHistoryOpen,
+  theme = 'dark',
+  onToggleTheme,
+}) {
   const displayName = userProfile?.name || 'Signed in';
   const displayEmail = userProfile?.email || 'Music room is active';
   const avatarInitial = (displayName.trim().charAt(0) || 'A').toUpperCase();
@@ -39,10 +46,9 @@ export default function Header({ onSignOut, userProfile, onHistoryToggle, isHist
         </div>
 
         <div className="brand-copy">
-          <p className="brand-subtitle">Aria studio</p>
-          <h1 className="brand-name">Turn up your world</h1>
+          <p className="brand-subtitle">Cloud Audio Space</p>
+          <h1 className="brand-name">Drive Music</h1>
         </div>
-
       </div>
 
       <div className="header-actions">
@@ -64,6 +70,19 @@ export default function Header({ onSignOut, userProfile, onHistoryToggle, isHist
             <p className="header-user-email">{displayEmail}</p>
           </div>
         </div>
+
+        {onToggleTheme ? (
+          <button
+            type="button"
+            onClick={onToggleTheme}
+            className="theme-toggle-button"
+            aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+            title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+          >
+            {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+            <span className="theme-toggle-text">{theme === 'dark' ? 'Light' : 'Dark'}</span>
+          </button>
+        ) : null}
 
         {onHistoryToggle ? (
           <button

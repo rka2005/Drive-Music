@@ -2,6 +2,30 @@
 
 :root {
   color-scheme: dark;
+  --bg-gradient: radial-gradient(circle at 18% 16%, rgba(212, 175, 55, 0.14), transparent 24%),
+    radial-gradient(circle at 82% 12%, rgba(103, 232, 249, 0.12), transparent 22%),
+    radial-gradient(circle at 52% 110%, rgba(255, 122, 182, 0.08), transparent 28%),
+    linear-gradient(180deg, #0b0b12 0%, #050509 100%);
+  --text-main: #f5f7ff;
+  --text-muted: rgba(225, 228, 240, 0.68);
+  --glass-bg: linear-gradient(180deg, rgba(23, 24, 34, 0.88), rgba(12, 12, 18, 0.78));
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --ambient-gold: radial-gradient(circle, rgba(212, 175, 55, 0.24), transparent 70%);
+  --ambient-cyan: radial-gradient(circle, rgba(103, 232, 249, 0.18), transparent 70%);
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --bg-gradient: radial-gradient(circle at 18% 16%, rgba(212, 175, 55, 0.12), transparent 28%),
+    radial-gradient(circle at 82% 12%, rgba(14, 165, 233, 0.1), transparent 26%),
+    radial-gradient(circle at 52% 110%, rgba(244, 114, 182, 0.06), transparent 30%),
+    linear-gradient(180deg, #f8faff 0%, #eef2f8 100%);
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --glass-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.85), rgba(248, 250, 252, 0.78));
+  --glass-border: rgba(0, 0, 0, 0.08);
+  --ambient-gold: radial-gradient(circle, rgba(212, 175, 55, 0.16), transparent 70%);
+  --ambient-cyan: radial-gradient(circle, rgba(14, 165, 233, 0.14), transparent 70%);
 }
 
 html,
@@ -13,13 +37,10 @@ body,
 body {
   margin: 0;
   font-family: 'Space Grotesk', sans-serif;
-  color: #f5f7ff;
-  background:
-    radial-gradient(circle at 18% 16%, rgba(212, 175, 55, 0.14), transparent 24%),
-    radial-gradient(circle at 82% 12%, rgba(103, 232, 249, 0.12), transparent 22%),
-    radial-gradient(circle at 52% 110%, rgba(255, 122, 182, 0.08), transparent 28%),
-    linear-gradient(180deg, #0b0b12 0%, #050509 100%);
+  color: var(--text-main);
+  background: var(--bg-gradient);
   background-attachment: fixed;
+  transition: background-color 300ms ease, color 300ms ease;
   scrollbar-color: rgba(212, 175, 55, 0.35) transparent;
 }
 

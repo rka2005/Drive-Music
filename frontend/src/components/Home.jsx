@@ -9,7 +9,7 @@ import { Music4, Disc3, Radio, Sparkles, AlertCircle } from 'lucide-react';
 
 const getBackendUrl = () => import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
-export default function Home({ onSignOut, userProfile }) {
+export default function Home({ onSignOut, userProfile, theme, onToggleTheme }) {
   const [playlist, setPlaylist] = useState([]);
   const [source, setSource] = useState('drive');
   const [connectedLabel, setConnectedLabel] = useState('Waiting for a Drive link');
@@ -151,6 +151,8 @@ export default function Home({ onSignOut, userProfile }) {
         userProfile={userProfile}
         onHistoryToggle={() => setIsHistoryOpen((previousValue) => !previousValue)}
         isHistoryOpen={isHistoryOpen}
+        theme={theme}
+        onToggleTheme={onToggleTheme}
       />
 
       <AnimatePresence>
@@ -174,6 +176,10 @@ export default function Home({ onSignOut, userProfile }) {
         isLoading={historyLoading}
         error={historyError}
         userProfile={userProfile}
+        onSelectHistory={({ source: selectedSource, link }) => {
+          setIsHistoryOpen(false);
+          handleFetchPlaylist({ source: selectedSource, link });
+        }}
       />
 
       <div className="music-grid music-grid--home">
@@ -188,57 +194,32 @@ export default function Home({ onSignOut, userProfile }) {
             <div className="hero-ambient hero-ambient--cyan" />
 
             <div className="pill-row">
-              <span className="pill">Now playing space</span>
-              <span className="pill pill--cyan">{sourceLabel} mode</span>
+              <span className="pill pill--gold">
+                <Sparkles size={13} />
+                Cloud Audio Player
+              </span>
+              <span className="pill pill--cyan">{sourceLabel} Stream</span>
+              {playlist.length > 0 ? (
+                <span className="pill is-live">● Live ({playlist.length} tracks)</span>
+              ) : null}
             </div>
 
-            <div className="hero-grid">
-              <div>
-                <p className="eyebrow">Your listening room</p>
-                <h1 className="hero-title">
-                  Bring your playlists into focus.
-                </h1>
-                <p className="body-copy hero-copy">
-                  Choose a source, paste a playlist link, and start listening. Your recent playlists stay available in History.
-                </p>
-              </div>
+            <div className="hero-content-wrap">
+              <h1 className="hero-title">
+                Stream without limits.
+              </h1>
+              <p className="body-copy hero-copy">
+                Drop in any public Google Drive music folder or YouTube playlist link. It auto-starts instantly and plays through the whole set without interruptions.
+              </p>
 
-              <div className="hero-metrics">
-                {[
-                  { label: 'Mood', value: 'Warm / Neon' },
-                  { label: 'Focus', value: 'Listening room' },
-                  { label: 'Energy', value: 'Slow burn' },
-                ].map((item) => (
-                  <div key={item.label} className="metric-card">
-                    <p className="metric-label">{item.label}</p>
-                    <p className="metric-value">{item.value}</p>
-                  </div>
-                ))}
+              <div className="hero-badges">
+                <span className="feature-badge">📁 Drive MP3/WAV/FLAC</span>
+                <span className="feature-badge">▶️ YouTube Sets</span>
+                <span className="feature-badge">⚡ Auto-start & Flow</span>
+                <span className="feature-badge">📱 Background Audio</span>
               </div>
             </div>
           </motion.div>
-
-          <div className="feature-grid">
-            {[
-              { icon: Music4, title: 'Curated flow', copy: 'Soft gradient surfaces and clear hierarchy.' },
-              { icon: Disc3, title: 'Analog glow', copy: 'Gold accents anchor the interface without overpowering it.' },
-              { icon: Radio, title: 'Live sync', copy: 'Drive and YouTube playlists feel immediate and playable.' },
-            ].map((item, index) => (
-              <motion.article
-                key={item.title}
-                className="glass-panel feature-card"
-                initial={{ opacity: 0, y: 14 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 + index * 0.05, duration: 0.55 }}
-              >
-                <div className="icon-badge">
-                  <item.icon size={20} />
-                </div>
-                <h2 className="feature-title">{item.title}</h2>
-                <p className="feature-copy">{item.copy}</p>
-              </motion.article>
-            ))}
-          </div>
 
           <DriveInput
             onConnect={handleFetchPlaylist}
@@ -305,7 +286,7 @@ export default function Home({ onSignOut, userProfile }) {
                 className="player-loading-shell"
               />
             ) : (
-              <Player key={`${source}-${playlist.length}`} playlist={playlist} />
+              <Player key={`${source}-${playlist[0]?.id || 'empty'}-${playlist.length}`} playlist={playlist} />
             )}
           </AnimatePresence>
         </section>
